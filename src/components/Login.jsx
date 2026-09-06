@@ -1,101 +1,197 @@
 import { useState } from "react";
+import { translations } from "../translations";
 
-function Login({ onLogin }) {
+function Login({
+  onLogin,
+  language,
+  setLanguage,
+}) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const t = translations[language];
 
-    if (name.trim() === "" || phone.trim() === "") {
-      alert("Please enter your name and mobile number");
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (name.trim() === "" || phone.trim() === "") {
+    alert("Please enter your name and mobile number");
+    return;
+  }
+
+  if (phone.length !== 10) {
+    alert("Please enter a valid 10-digit mobile number");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/auth/login",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message);
       return;
     }
 
-    if (phone.length !== 10) {
-      alert("Please enter a valid 10-digit mobile number");
-      return;
-    }
+    onLogin(data.farmer);
+  } catch (error) {
+    console.error("Login error:", error);
 
-    onLogin({
-      name,
-      phone,
-    });
-  };
+    alert(
+      "Unable to connect to VOOLER server."
+    );
+  }
+};
 
   return (
     <div className="login-page">
+
       <div className="login-container">
 
-        <div className="brand-section">
-          <div className="logo-icon">❄</div>
+        {/* LEFT SIDE */}
 
-          <h1>VOOLER</h1>
+        <div className="brand-section">
+
+          <div className="logo-icon">
+            ❄
+          </div>
+
+          <h1>
+            VOOLER
+          </h1>
 
           <p className="brand-description">
-            Smart Cold Storage Monitoring System
+            {t.brandDescription}
           </p>
 
           <div className="feature-list">
-            <p>🌡 Real-time Temperature Monitoring</p>
-            <p>💧 Humidity Monitoring</p>
-            <p>⚡ Power Failure Alerts</p>
-            <p>🔔 Smart Storage Warnings</p>
+
+            <p>
+              🌡 {t.tempMonitoring}
+            </p>
+
+            <p>
+              💧 {t.humidityMonitoring}
+            </p>
+
+            <p>
+              ⚡ {t.powerAlerts}
+            </p>
+
+            <p>
+              🔔 {t.smartWarnings}
+            </p>
+
           </div>
+
         </div>
+
+
+        {/* LOGIN SIDE */}
 
         <div className="login-section">
 
-          <h2>Farmer Login</h2>
+          <h2>
+            {t.farmerLogin}
+          </h2>
 
           <p className="login-description">
-            Login using your registered details
+            {t.loginDescription}
           </p>
+
 
           <form onSubmit={handleSubmit}>
 
             <div className="form-group">
-              <label>Farmer Name</label>
+
+              <label>
+                {t.farmerName}
+              </label>
 
               <input
                 type="text"
-                placeholder="Enter your name"
+                placeholder={t.enterName}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) =>
+                  setName(e.target.value)
+                }
               />
+
             </div>
 
+
             <div className="form-group">
-              <label>Registered Mobile Number</label>
+
+              <label>
+                {t.registeredMobile}
+              </label>
 
               <input
                 type="tel"
-                placeholder="Enter 10-digit mobile number"
+                placeholder={t.enterMobile}
                 value={phone}
                 maxLength="10"
                 onChange={(e) =>
-                  setPhone(e.target.value.replace(/\D/g, ""))
+                  setPhone(
+                    e.target.value.replace(/\D/g, "")
+                  )
                 }
               />
+
             </div>
 
-            <button className="login-button" type="submit">
-              Login to Dashboard
+
+            <button
+              className="login-button"
+              type="submit"
+            >
+              {t.loginDashboard}
             </button>
 
           </form>
 
-          <div className="language-selector">
-            <span>Language:</span>
 
-            <button type="button">বাংলা</button>
-            <button type="button">English</button>
-            <button type="button">हिन्दी</button>
+          <div className="language-selector">
+
+            <span>
+              {t.language}:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setLanguage("bn")}
+            >
+              বাংলা
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+            >
+              English
+            </button>
+
           </div>
 
         </div>
 
       </div>
+
     </div>
   );
 }
