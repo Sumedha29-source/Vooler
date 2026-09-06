@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { translations } from "../translations";
 
 import {
@@ -17,97 +17,154 @@ function Dashboard({
   language,
   setLanguage,
 }) {
-  // ================================
+  // ==========================================
   // TRANSLATION
-  // ================================
+  // ==========================================
 
   const t = translations[language];
 
-  // ================================
-  // CURRENT VALUES
-  // ================================
+  // ==========================================
+  // CURRENT SENSOR / DEVICE DATA
+  // ==========================================
 
-  const [temperature, setTemperature] = useState(7.8);
-  const [humidity, setHumidity] = useState(76);
-  const [power, setPower] = useState(true);
-  const [online, setOnline] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState("Just now");
+  const [temperature, setTemperature] = useState(0);
+  const [humidity, setHumidity] = useState(0);
+  const [power, setPower] = useState(false);
+  const [online, setOnline] = useState(false);
 
-  // ================================
-  // HISTORY
-  // power: 1 = ON, 0 = FAILURE
-  // online: 1 = ONLINE, 0 = OFFLINE
-  // ================================
+  const [lastUpdated, setLastUpdated] = useState(
+    "Waiting for data..."
+  );
 
-  const [history, setHistory] = useState([
-    {
-      time: "10:00:00 AM",
-      temperature: 7.4,
-      humidity: 74,
-      power: 1,
-      online: 1,
-    },
-    {
-      time: "10:05:00 AM",
-      temperature: 7.6,
-      humidity: 75,
-      power: 1,
-      online: 1,
-    },
-    {
-      time: "10:10:00 AM",
-      temperature: 7.8,
-      humidity: 76,
-      power: 1,
-      online: 1,
-    },
-  ]);
+  const [history, setHistory] = useState([]);
 
-  // ================================
-  // ADD READING
-  // ================================
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const addReading = (
-    newTemp,
-    newHumidity,
-    newPower = power,
-    newOnline = online
-  ) => {
-    const now = new Date();
+  // ==========================================
+  // GET REAL DATA FROM BACKEND
+  // ==========================================
 
-    const time = now.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:5000/api/dashboard/${farmer.storageId}`
+        );
 
-    setTemperature(newTemp);
-    setHumidity(newHumidity);
-    setPower(newPower);
-    setOnline(newOnline);
-    setLastUpdated(time);
+        const data = await response.json();
 
-    setHistory((previousHistory) => [
-      ...previousHistory.slice(-9),
-      {
-        time,
-        temperature: newTemp,
-        humidity: newHumidity,
-        power: newPower ? 1 : 0,
-        online: newOnline ? 1 : 0,
-      },
-    ]);
-  };
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to load dashboard"
+          );
+        }
 
-  // ================================
+        // ------------------------------------------
+        // LATEST READING
+        // ------------------------------------------
+
+        if (data.latest) {
+          setTemperature(data.latest.temperature);
+          setHumidity(data.latest.humidity);
+          setPower(data.latest.power);
+          setOnline(data.latest.online);
+
+          const date = new Date(
+            data.latest.timestamp
+          );
+
+          setLastUpdated(
+            date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          );
+        } else {
+          setOnline(false);
+        }
+
+        // ------------------------------------------
+        // HISTORY
+        // ------------------------------------------
+
+        const formattedHistory = data.history.map(
+          (reading) => {
+            const date = new Date(
+              reading.timestamp
+            );
+
+            return {
+              time: date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              }),
+
+              timestamp: reading.timestamp,
+
+              temperature:
+                reading.temperature,
+
+              humidity:
+                reading.humidity,
+
+              power:
+                reading.power ? 1 : 0,
+
+              // A reading means the device was online
+              // when the server received that reading.
+              online: 1,
+            };
+          }
+        );
+
+        setHistory(formattedHistory);
+
+        setError("");
+      } catch (error) {
+        console.error(
+          "Dashboard fetch error:",
+          error
+        );
+
+        setError(
+          "Unable to receive storage data."
+        );
+
+        setOnline(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Fetch immediately
+    fetchDashboardData();
+
+    // Refresh every 10 seconds
+    const interval = setInterval(
+      fetchDashboardData,
+      10000
+    );
+
+    // Stop interval when dashboard closes
+    return () => {
+      clearInterval(interval);
+    };
+  }, [farmer.storageId]);
+
+  // ==========================================
   // TEMPERATURE STATUS
-  // ================================
+  // ==========================================
 
   const getTempStatus = (temp) => {
+    // SAFE = 5°C to 10°C
     if (temp >= 5 && temp <= 10) {
       return "SAFE";
     }
 
+    // WARNING
     if (
       (temp >= 3 && temp < 5) ||
       (temp > 10 && temp <= 12)
@@ -115,18 +172,21 @@ function Dashboard({
       return "WARNING";
     }
 
+    // UNSAFE
     return "UNSAFE";
   };
 
-  // ================================
+  // ==========================================
   // HUMIDITY STATUS
-  // ================================
+  // ==========================================
 
   const getHumidityStatus = (hum) => {
+    // SAFE = 70% to 80%
     if (hum >= 70 && hum <= 80) {
       return "SAFE";
     }
 
+    // WARNING
     if (
       (hum >= 60 && hum < 70) ||
       (hum > 80 && hum <= 85)
@@ -134,15 +194,19 @@ function Dashboard({
       return "WARNING";
     }
 
+    // UNSAFE
     return "UNSAFE";
   };
 
-  const temperatureStatus = getTempStatus(temperature);
-  const humidityStatus = getHumidityStatus(humidity);
+  const temperatureStatus =
+    getTempStatus(temperature);
 
-  // ================================
-  // TRANSLATED STATUS TEXT
-  // ================================
+  const humidityStatus =
+    getHumidityStatus(humidity);
+
+  // ==========================================
+  // TRANSLATE STATUS
+  // ==========================================
 
   const translateStatus = (status) => {
     if (status === "SAFE") {
@@ -156,9 +220,9 @@ function Dashboard({
     return t.unsafe;
   };
 
-  // ================================
-  // OVERALL STORAGE STATUS
-  // ================================
+  // ==========================================
+  // OVERALL STORAGE CONDITION
+  // ==========================================
 
   let overallStatus = "SAFE";
 
@@ -176,9 +240,9 @@ function Dashboard({
     overallStatus = "ATTENTION";
   }
 
-  // ================================
+  // ==========================================
   // FLUCTUATION DETECTION
-  // ================================
+  // ==========================================
 
   let temperatureFluctuation = false;
   let humidityFluctuation = false;
@@ -187,15 +251,20 @@ function Dashboard({
   let humidityDifference = 0;
 
   if (history.length >= 2) {
-    const previous = history[history.length - 2];
-    const latest = history[history.length - 1];
+    const previous =
+      history[history.length - 2];
+
+    const latest =
+      history[history.length - 1];
 
     temperatureDifference = Math.abs(
-      latest.temperature - previous.temperature
+      latest.temperature -
+        previous.temperature
     );
 
     humidityDifference = Math.abs(
-      latest.humidity - previous.humidity
+      latest.humidity -
+        previous.humidity
     );
 
     if (temperatureDifference >= 2) {
@@ -207,50 +276,65 @@ function Dashboard({
     }
   }
 
-  // ================================
-  // PROTOTYPE TEST FUNCTIONS
-  // ================================
+  // ==========================================
+  // DEVICE CONNECTIVITY GRAPH
+  // ==========================================
+  //
+  // Every stored reading represents a point
+  // where the device was online.
+  //
+  // If the backend currently reports the
+  // device as offline, we add an OFFLINE point
+  // to the graph so that the graph drops to 0.
+  // ==========================================
 
-  const setSafeCondition = () => {
-    addReading(7.8, 76, true, true);
-  };
+  const connectivityHistory = [...history];
 
-  const setTemperatureWarning = () => {
-    addReading(11, 76, true, true);
-  };
+  if (
+    history.length > 0 &&
+    online === false
+  ) {
+    const latest =
+      history[history.length - 1];
 
-  const setTemperatureDanger = () => {
-    addReading(14, 76, true, true);
-  };
+    connectivityHistory.push({
+      ...latest,
+      time:
+        language === "bn"
+          ? "এখন"
+          : "Now",
+      online: 0,
+    });
+  }
 
-  const setHumidityDanger = () => {
-    addReading(7.8, 90, true, true);
-  };
+  // ==========================================
+  // LOADING SCREEN
+  // ==========================================
 
-  const setPowerFailure = () => {
-    addReading(
-      temperature,
-      humidity,
-      false,
-      online
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-main">
+          <h2>
+            {language === "bn"
+              ? "VOOLER ডেটা লোড হচ্ছে..."
+              : "Loading VOOLER data..."}
+          </h2>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const setDeviceOffline = () => {
-    addReading(
-      temperature,
-      humidity,
-      power,
-      false
-    );
-  };
+  // ==========================================
+  // DASHBOARD
+  // ==========================================
 
   return (
     <div className="dashboard-page">
 
-      {/* ================================
+      {/* ==================================
           NAVBAR
-      ================================ */}
+      ================================== */}
 
       <nav className="dashboard-navbar">
 
@@ -264,14 +348,18 @@ function Dashboard({
 
             <button
               type="button"
-              onClick={() => setLanguage("bn")}
+              onClick={() =>
+                setLanguage("bn")
+              }
             >
               বাংলা
             </button>
 
             <button
               type="button"
-              onClick={() => setLanguage("en")}
+              onClick={() =>
+                setLanguage("en")
+              }
             >
               English
             </button>
@@ -288,9 +376,19 @@ function Dashboard({
 
       <main className="dashboard-main">
 
-        {/* ================================
-            FARMER DETAILS
-        ================================ */}
+        {/* ==================================
+            SERVER ERROR
+        ================================== */}
+
+        {error && (
+          <div className="alert-danger">
+            📡 {error}
+          </div>
+        )}
+
+        {/* ==================================
+            FARMER INFORMATION
+        ================================== */}
 
         <section className="dashboard-header">
 
@@ -301,11 +399,13 @@ function Dashboard({
             </h1>
 
             <p>
-              {t.registeredMobile}: {farmer.phone}
+              {t.registeredMobile}:{" "}
+              {farmer.phone}
             </p>
 
             <p>
-              {t.storageId}: CS001
+              {t.storageId}:{" "}
+              {farmer.storageId}
             </p>
 
           </div>
@@ -328,9 +428,9 @@ function Dashboard({
 
         </section>
 
-        {/* ================================
+        {/* ==================================
             STORAGE CONDITION
-        ================================ */}
+        ================================== */}
 
         <section
           className={`storage-status-card ${overallStatus.toLowerCase()}`}
@@ -345,10 +445,12 @@ function Dashboard({
             {overallStatus === "SAFE" &&
               `🟢 ${t.safe}`}
 
-            {overallStatus === "ATTENTION" &&
+            {overallStatus ===
+              "ATTENTION" &&
               `🟡 ${t.attention}`}
 
-            {overallStatus === "UNSAFE" &&
+            {overallStatus ===
+              "UNSAFE" &&
               `🔴 ${t.unsafe}`}
 
           </h2>
@@ -358,19 +460,21 @@ function Dashboard({
             {overallStatus === "SAFE" &&
               t.safeMessage}
 
-            {overallStatus === "ATTENTION" &&
+            {overallStatus ===
+              "ATTENTION" &&
               t.attentionMessage}
 
-            {overallStatus === "UNSAFE" &&
+            {overallStatus ===
+              "UNSAFE" &&
               t.unsafeMessage}
 
           </p>
 
         </section>
 
-        {/* ================================
+        {/* ==================================
             MONITORING CARDS
-        ================================ */}
+        ================================== */}
 
         <section className="monitoring-grid">
 
@@ -393,7 +497,9 @@ function Dashboard({
             <div
               className={`status-badge ${temperatureStatus.toLowerCase()}`}
             >
-              {translateStatus(temperatureStatus)}
+              {translateStatus(
+                temperatureStatus
+              )}
             </div>
 
           </div>
@@ -417,7 +523,9 @@ function Dashboard({
             <div
               className={`status-badge ${humidityStatus.toLowerCase()}`}
             >
-              {translateStatus(humidityStatus)}
+              {translateStatus(
+                humidityStatus
+              )}
             </div>
 
           </div>
@@ -435,12 +543,16 @@ function Dashboard({
             </h3>
 
             <div className="sensor-value">
-              {power ? t.on : t.failure}
+              {power
+                ? t.on
+                : t.failure}
             </div>
 
             <div
               className={`status-badge ${
-                power ? "safe" : "unsafe"
+                power
+                  ? "safe"
+                  : "unsafe"
               }`}
             >
               {power
@@ -463,28 +575,34 @@ function Dashboard({
             </h3>
 
             <div className="sensor-value device-value">
+
               {online
                 ? t.online
                 : t.offline}
+
             </div>
 
             <div
               className={`status-badge ${
-                online ? "safe" : "unsafe"
+                online
+                  ? "safe"
+                  : "unsafe"
               }`}
             >
+
               {online
                 ? t.connected
                 : t.noData}
+
             </div>
 
           </div>
 
         </section>
 
-        {/* ================================
+        {/* ==================================
             SMART ALERTS
-        ================================ */}
+        ================================== */}
 
         <section className="alerts-section">
 
@@ -499,6 +617,8 @@ function Dashboard({
             </span>
 
           </div>
+
+          {/* EVERYTHING SAFE */}
 
           {overallStatus === "SAFE" &&
             !temperatureFluctuation &&
@@ -525,7 +645,10 @@ function Dashboard({
               </div>
             )}
 
-          {temperatureStatus === "WARNING" && (
+          {/* TEMPERATURE WARNING */}
+
+          {temperatureStatus ===
+            "WARNING" && (
 
             <div className="alert-warning">
               ⚠️ {t.tempWarning}
@@ -533,7 +656,10 @@ function Dashboard({
 
           )}
 
-          {temperatureStatus === "UNSAFE" && (
+          {/* TEMPERATURE DANGER */}
+
+          {temperatureStatus ===
+            "UNSAFE" && (
 
             <div className="alert-danger">
               🚨 {t.unsafeTemperature}:{" "}
@@ -542,7 +668,10 @@ function Dashboard({
 
           )}
 
-          {humidityStatus === "WARNING" && (
+          {/* HUMIDITY WARNING */}
+
+          {humidityStatus ===
+            "WARNING" && (
 
             <div className="alert-warning">
               ⚠️ {t.humidityWarning}
@@ -550,7 +679,10 @@ function Dashboard({
 
           )}
 
-          {humidityStatus === "UNSAFE" && (
+          {/* HUMIDITY DANGER */}
+
+          {humidityStatus ===
+            "UNSAFE" && (
 
             <div className="alert-danger">
               🚨 {t.unsafeHumidity}:{" "}
@@ -559,25 +691,45 @@ function Dashboard({
 
           )}
 
+          {/* TEMPERATURE FLUCTUATION */}
+
           {temperatureFluctuation && (
 
             <div className="alert-warning">
+
               🌡 {t.tempFluctuation}{" "}
+
               {t.change}:{" "}
-              {temperatureDifference.toFixed(1)}°C
+
+              {temperatureDifference.toFixed(
+                1
+              )}
+              °C
+
             </div>
 
           )}
+
+          {/* HUMIDITY FLUCTUATION */}
 
           {humidityFluctuation && (
 
             <div className="alert-warning">
+
               💧 {t.humidityFluctuation}{" "}
+
               {t.change}:{" "}
-              {humidityDifference.toFixed(0)}%
+
+              {humidityDifference.toFixed(
+                0
+              )}
+              %
+
             </div>
 
           )}
+
+          {/* POWER FAILURE */}
 
           {!power && (
 
@@ -586,6 +738,8 @@ function Dashboard({
             </div>
 
           )}
+
+          {/* DEVICE OFFLINE */}
 
           {!online && (
 
@@ -597,13 +751,15 @@ function Dashboard({
 
         </section>
 
-        {/* ================================
-            FOUR HISTORY GRAPHS
-        ================================ */}
+        {/* ==================================
+            HISTORY GRAPHS
+        ================================== */}
 
         <section className="charts-section">
 
-          {/* TEMPERATURE GRAPH */}
+          {/* ================================
+              TEMPERATURE GRAPH
+          ================================ */}
 
           <div className="chart-card">
 
@@ -626,7 +782,9 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart data={history}>
+                <LineChart
+                  data={history}
+                >
 
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -660,7 +818,9 @@ function Dashboard({
 
           </div>
 
-          {/* HUMIDITY GRAPH */}
+          {/* ================================
+              HUMIDITY GRAPH
+          ================================ */}
 
           <div className="chart-card">
 
@@ -683,7 +843,9 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart data={history}>
+                <LineChart
+                  data={history}
+                >
 
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -717,7 +879,9 @@ function Dashboard({
 
           </div>
 
-          {/* POWER GRAPH */}
+          {/* ================================
+              POWER HISTORY
+          ================================ */}
 
           <div className="chart-card">
 
@@ -728,7 +892,8 @@ function Dashboard({
               </h2>
 
               <span>
-                1 = {t.on} • 0 = {t.failure}
+                1 = {t.on} • 0 ={" "}
+                {t.failure}
               </span>
 
             </div>
@@ -740,7 +905,9 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart data={history}>
+                <LineChart
+                  data={history}
+                >
 
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -779,7 +946,9 @@ function Dashboard({
 
           </div>
 
-          {/* DEVICE GRAPH */}
+          {/* ================================
+              DEVICE CONNECTIVITY
+          ================================ */}
 
           <div className="chart-card">
 
@@ -790,7 +959,8 @@ function Dashboard({
               </h2>
 
               <span>
-                1 = {t.online} • 0 = {t.offline}
+                1 = {t.online} • 0 ={" "}
+                {t.offline}
               </span>
 
             </div>
@@ -802,7 +972,9 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart data={history}>
+                <LineChart
+                  data={connectivityHistory}
+                >
 
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -843,9 +1015,9 @@ function Dashboard({
 
         </section>
 
-        {/* ================================
-            RECENT READINGS TABLE
-        ================================ */}
+        {/* ==================================
+            RECENT READINGS
+        ================================== */}
 
         <section className="history-section">
 
@@ -856,7 +1028,8 @@ function Dashboard({
             </h2>
 
             <span>
-              {history.length} {t.recent}
+              {history.length}{" "}
+              {t.recent}
             </span>
 
           </div>
@@ -897,7 +1070,11 @@ function Dashboard({
 
                 {[...history]
                   .reverse()
-                  .map((reading, index) => (
+                  .map(
+                    (
+                      reading,
+                      index
+                    ) => (
 
                     <tr key={index}>
 
@@ -906,7 +1083,10 @@ function Dashboard({
                       </td>
 
                       <td>
-                        {reading.temperature}°C
+                        {
+                          reading.temperature
+                        }
+                        °C
                       </td>
 
                       <td>
@@ -914,15 +1094,15 @@ function Dashboard({
                       </td>
 
                       <td>
+
                         {reading.power === 1
                           ? t.on
                           : t.failure}
+
                       </td>
 
                       <td>
-                        {reading.online === 1
-                          ? t.online
-                          : t.offline}
+                        {t.online}
                       </td>
 
                     </tr>
@@ -937,70 +1117,9 @@ function Dashboard({
 
         </section>
 
-        {/* ================================
-            PROTOTYPE CONTROLS
-        ================================ */}
-
-        <section className="test-panel">
-
-          <h2>
-            🧪 {t.prototypeControls}
-          </h2>
-
-          <p>
-            {t.prototypeDescription}
-          </p>
-
-          <div className="test-buttons">
-
-            <button
-              className="test-safe"
-              onClick={setSafeCondition}
-            >
-              {t.normal}
-            </button>
-
-            <button
-              onClick={setTemperatureWarning}
-            >
-              {t.temperatureWarningButton}
-            </button>
-
-            <button
-              className="test-danger"
-              onClick={setTemperatureDanger}
-            >
-              {t.highTemperature}
-            </button>
-
-            <button
-              className="test-danger"
-              onClick={setHumidityDanger}
-            >
-              {t.highHumidity}
-            </button>
-
-            <button
-              className="test-danger"
-              onClick={setPowerFailure}
-            >
-              {t.powerFailureButton}
-            </button>
-
-            <button
-              className="test-danger"
-              onClick={setDeviceOffline}
-            >
-              {t.deviceOfflineButton}
-            </button>
-
-          </div>
-
-        </section>
-
-        {/* ================================
-            LAST UPDATE
-        ================================ */}
+        {/* ==================================
+            LAST DATA RECEIVED
+        ================================== */}
 
         <section className="last-update-card">
 
@@ -1009,11 +1128,14 @@ function Dashboard({
           </span>
 
           <p>
+
             {t.lastDataReceived}:
+
             <strong>
               {" "}
               {lastUpdated}
             </strong>
+
           </p>
 
         </section>
