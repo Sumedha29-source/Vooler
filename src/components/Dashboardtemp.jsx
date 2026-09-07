@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { translations } from "../translations";
+import { API_BASE_URL } from "../config";
 
 import {
   LineChart,
@@ -17,15 +18,11 @@ function Dashboard({
   language,
   setLanguage,
 }) {
-  // ==========================================
-  // TRANSLATION
-  // ==========================================
-
   const t = translations[language];
 
-  // ==========================================
-  // CURRENT SENSOR / DEVICE DATA
-  // ==========================================
+  // ================================
+  // CURRENT SENSOR DATA
+  // ================================
 
   const [temperature, setTemperature] = useState(0);
   const [humidity, setHumidity] = useState(0);
@@ -41,15 +38,15 @@ function Dashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ==========================================
-  // GET REAL DATA FROM BACKEND
-  // ==========================================
+  // ================================
+  // GET LIVE DATA FROM BACKEND
+  // ================================
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/dashboard/${farmer.storageId}`
+          `${API_BASE_URL}/api/dashboard/${farmer.storageId}`
         );
 
         const data = await response.json();
@@ -59,10 +56,6 @@ function Dashboard({
             data.message || "Unable to load dashboard"
           );
         }
-
-        // ------------------------------------------
-        // LATEST READING
-        // ------------------------------------------
 
         if (data.latest) {
           setTemperature(data.latest.temperature);
@@ -85,40 +78,34 @@ function Dashboard({
           setOnline(false);
         }
 
-        // ------------------------------------------
-        // HISTORY
-        // ------------------------------------------
+        const formattedHistory = (
+          data.history || []
+        ).map((reading) => {
+          const date = new Date(
+            reading.timestamp
+          );
 
-        const formattedHistory = data.history.map(
-          (reading) => {
-            const date = new Date(
-              reading.timestamp
-            );
+          return {
+            time: date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }),
 
-            return {
-              time: date.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              }),
+            timestamp: reading.timestamp,
 
-              timestamp: reading.timestamp,
+            temperature:
+              reading.temperature,
 
-              temperature:
-                reading.temperature,
+            humidity:
+              reading.humidity,
 
-              humidity:
-                reading.humidity,
+            power:
+              reading.power ? 1 : 0,
 
-              power:
-                reading.power ? 1 : 0,
-
-              // A reading means the device was online
-              // when the server received that reading.
-              online: 1,
-            };
-          }
-        );
+            online: 1,
+          };
+        });
 
         setHistory(formattedHistory);
 
@@ -130,7 +117,13 @@ function Dashboard({
         );
 
         setError(
-          "Unable to receive storage data."
+          language === "bn"
+            ? "স্টোরেজ ডেটা পাওয়া যাচ্ছে না।"
+            : language === "hi"
+            ? "स्टोरेज डेटा प्राप्त नहीं हो रहा है।"
+            : language === "as"
+            ? "ষ্টোৰেজ ডেটা পোৱা নাই।"
+            : "Unable to receive storage data."
         );
 
         setOnline(false);
@@ -139,32 +132,27 @@ function Dashboard({
       }
     };
 
-    // Fetch immediately
     fetchDashboardData();
 
-    // Refresh every 10 seconds
     const interval = setInterval(
       fetchDashboardData,
       10000
     );
 
-    // Stop interval when dashboard closes
     return () => {
       clearInterval(interval);
     };
-  }, [farmer.storageId]);
+  }, [farmer.storageId, language]);
 
-  // ==========================================
+  // ================================
   // TEMPERATURE STATUS
-  // ==========================================
+  // ================================
 
   const getTempStatus = (temp) => {
-    // SAFE = 5°C to 10°C
     if (temp >= 5 && temp <= 10) {
       return "SAFE";
     }
 
-    // WARNING
     if (
       (temp >= 3 && temp < 5) ||
       (temp > 10 && temp <= 12)
@@ -172,21 +160,18 @@ function Dashboard({
       return "WARNING";
     }
 
-    // UNSAFE
     return "UNSAFE";
   };
 
-  // ==========================================
+  // ================================
   // HUMIDITY STATUS
-  // ==========================================
+  // ================================
 
   const getHumidityStatus = (hum) => {
-    // SAFE = 70% to 80%
     if (hum >= 70 && hum <= 80) {
       return "SAFE";
     }
 
-    // WARNING
     if (
       (hum >= 60 && hum < 70) ||
       (hum > 80 && hum <= 85)
@@ -194,7 +179,6 @@ function Dashboard({
       return "WARNING";
     }
 
-    // UNSAFE
     return "UNSAFE";
   };
 
@@ -204,9 +188,9 @@ function Dashboard({
   const humidityStatus =
     getHumidityStatus(humidity);
 
-  // ==========================================
-  // TRANSLATE STATUS
-  // ==========================================
+  // ================================
+  // TRANSLATED STATUS
+  // ================================
 
   const translateStatus = (status) => {
     if (status === "SAFE") {
@@ -220,9 +204,9 @@ function Dashboard({
     return t.unsafe;
   };
 
-  // ==========================================
+  // ================================
   // OVERALL STORAGE CONDITION
-  // ==========================================
+  // ================================
 
   let overallStatus = "SAFE";
 
@@ -240,9 +224,9 @@ function Dashboard({
     overallStatus = "ATTENTION";
   }
 
-  // ==========================================
+  // ================================
   // FLUCTUATION DETECTION
-  // ==========================================
+  // ================================
 
   let temperatureFluctuation = false;
   let humidityFluctuation = false;
@@ -276,17 +260,9 @@ function Dashboard({
     }
   }
 
-  // ==========================================
-  // DEVICE CONNECTIVITY GRAPH
-  // ==========================================
-  //
-  // Every stored reading represents a point
-  // where the device was online.
-  //
-  // If the backend currently reports the
-  // device as offline, we add an OFFLINE point
-  // to the graph so that the graph drops to 0.
-  // ==========================================
+  // ================================
+  // CONNECTIVITY HISTORY
+  // ================================
 
   const connectivityHistory = [...history];
 
@@ -299,17 +275,23 @@ function Dashboard({
 
     connectivityHistory.push({
       ...latest,
+
       time:
         language === "bn"
           ? "এখন"
+          : language === "hi"
+          ? "अभी"
+          : language === "as"
+          ? "এতিয়া"
           : "Now",
+
       online: 0,
     });
   }
 
-  // ==========================================
-  // LOADING SCREEN
-  // ==========================================
+  // ================================
+  // LOADING
+  // ================================
 
   if (loading) {
     return (
@@ -318,6 +300,10 @@ function Dashboard({
           <h2>
             {language === "bn"
               ? "VOOLER ডেটা লোড হচ্ছে..."
+              : language === "hi"
+              ? "VOOLER डेटा लोड हो रहा है..."
+              : language === "as"
+              ? "VOOLER ডেটা লোড হৈ আছে..."
               : "Loading VOOLER data..."}
           </h2>
         </div>
@@ -325,16 +311,10 @@ function Dashboard({
     );
   }
 
-  // ==========================================
-  // DASHBOARD
-  // ==========================================
-
   return (
     <div className="dashboard-page">
 
-      {/* ==================================
-          NAVBAR
-      ================================== */}
+      {/* NAVBAR */}
 
       <nav className="dashboard-navbar">
 
@@ -348,20 +328,30 @@ function Dashboard({
 
             <button
               type="button"
-              onClick={() =>
-                setLanguage("bn")
-              }
+              onClick={() => setLanguage("bn")}
             >
               বাংলা
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                setLanguage("en")
-              }
+              onClick={() => setLanguage("en")}
             >
               English
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLanguage("hi")}
+            >
+              हिन्दी
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLanguage("as")}
+            >
+              অসমীয়া
             </button>
 
           </div>
@@ -376,9 +366,7 @@ function Dashboard({
 
       <main className="dashboard-main">
 
-        {/* ==================================
-            SERVER ERROR
-        ================================== */}
+        {/* SERVER ERROR */}
 
         {error && (
           <div className="alert-danger">
@@ -386,9 +374,7 @@ function Dashboard({
           </div>
         )}
 
-        {/* ==================================
-            FARMER INFORMATION
-        ================================== */}
+        {/* FARMER INFORMATION */}
 
         <section className="dashboard-header">
 
@@ -428,9 +414,7 @@ function Dashboard({
 
         </section>
 
-        {/* ==================================
-            STORAGE CONDITION
-        ================================== */}
+        {/* STORAGE CONDITION */}
 
         <section
           className={`storage-status-card ${overallStatus.toLowerCase()}`}
@@ -441,44 +425,32 @@ function Dashboard({
           </p>
 
           <h2>
-
             {overallStatus === "SAFE" &&
               `🟢 ${t.safe}`}
 
-            {overallStatus ===
-              "ATTENTION" &&
+            {overallStatus === "ATTENTION" &&
               `🟡 ${t.attention}`}
 
-            {overallStatus ===
-              "UNSAFE" &&
+            {overallStatus === "UNSAFE" &&
               `🔴 ${t.unsafe}`}
-
           </h2>
 
           <p>
-
             {overallStatus === "SAFE" &&
               t.safeMessage}
 
-            {overallStatus ===
-              "ATTENTION" &&
+            {overallStatus === "ATTENTION" &&
               t.attentionMessage}
 
-            {overallStatus ===
-              "UNSAFE" &&
+            {overallStatus === "UNSAFE" &&
               t.unsafeMessage}
-
           </p>
 
         </section>
 
-        {/* ==================================
-            MONITORING CARDS
-        ================================== */}
+        {/* MONITORING CARDS */}
 
         <section className="monitoring-grid">
-
-          {/* TEMPERATURE */}
 
           <div className="monitor-card">
 
@@ -504,8 +476,6 @@ function Dashboard({
 
           </div>
 
-          {/* HUMIDITY */}
-
           <div className="monitor-card">
 
             <div className="card-icon">
@@ -529,8 +499,6 @@ function Dashboard({
             </div>
 
           </div>
-
-          {/* POWER */}
 
           <div className="monitor-card">
 
@@ -562,8 +530,6 @@ function Dashboard({
 
           </div>
 
-          {/* DEVICE */}
-
           <div className="monitor-card">
 
             <div className="card-icon">
@@ -575,11 +541,9 @@ function Dashboard({
             </h3>
 
             <div className="sensor-value device-value">
-
               {online
                 ? t.online
                 : t.offline}
-
             </div>
 
             <div
@@ -589,20 +553,16 @@ function Dashboard({
                   : "unsafe"
               }`}
             >
-
               {online
                 ? t.connected
                 : t.noData}
-
             </div>
 
           </div>
 
         </section>
 
-        {/* ==================================
-            SMART ALERTS
-        ================================== */}
+        {/* SMART ALERTS */}
 
         <section className="alerts-section">
 
@@ -617,8 +577,6 @@ function Dashboard({
             </span>
 
           </div>
-
-          {/* EVERYTHING SAFE */}
 
           {overallStatus === "SAFE" &&
             !temperatureFluctuation &&
@@ -645,8 +603,6 @@ function Dashboard({
               </div>
             )}
 
-          {/* TEMPERATURE WARNING */}
-
           {temperatureStatus ===
             "WARNING" && (
 
@@ -655,8 +611,6 @@ function Dashboard({
             </div>
 
           )}
-
-          {/* TEMPERATURE DANGER */}
 
           {temperatureStatus ===
             "UNSAFE" && (
@@ -668,8 +622,6 @@ function Dashboard({
 
           )}
 
-          {/* HUMIDITY WARNING */}
-
           {humidityStatus ===
             "WARNING" && (
 
@@ -678,8 +630,6 @@ function Dashboard({
             </div>
 
           )}
-
-          {/* HUMIDITY DANGER */}
 
           {humidityStatus ===
             "UNSAFE" && (
@@ -691,45 +641,31 @@ function Dashboard({
 
           )}
 
-          {/* TEMPERATURE FLUCTUATION */}
-
           {temperatureFluctuation && (
 
             <div className="alert-warning">
-
               🌡 {t.tempFluctuation}{" "}
-
               {t.change}:{" "}
-
               {temperatureDifference.toFixed(
                 1
               )}
               °C
-
             </div>
 
           )}
-
-          {/* HUMIDITY FLUCTUATION */}
 
           {humidityFluctuation && (
 
             <div className="alert-warning">
-
               💧 {t.humidityFluctuation}{" "}
-
               {t.change}:{" "}
-
               {humidityDifference.toFixed(
                 0
               )}
               %
-
             </div>
 
           )}
-
-          {/* POWER FAILURE */}
 
           {!power && (
 
@@ -738,8 +674,6 @@ function Dashboard({
             </div>
 
           )}
-
-          {/* DEVICE OFFLINE */}
 
           {!online && (
 
@@ -751,15 +685,11 @@ function Dashboard({
 
         </section>
 
-        {/* ==================================
-            HISTORY GRAPHS
-        ================================== */}
+        {/* GRAPHS */}
 
         <section className="charts-section">
 
-          {/* ================================
-              TEMPERATURE GRAPH
-          ================================ */}
+          {/* TEMPERATURE */}
 
           <div className="chart-card">
 
@@ -782,17 +712,13 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart
-                  data={history}
-                >
+                <LineChart data={history}>
 
                   <CartesianGrid
                     strokeDasharray="3 3"
                   />
 
-                  <XAxis
-                    dataKey="time"
-                  />
+                  <XAxis dataKey="time" />
 
                   <YAxis />
 
@@ -818,9 +744,7 @@ function Dashboard({
 
           </div>
 
-          {/* ================================
-              HUMIDITY GRAPH
-          ================================ */}
+          {/* HUMIDITY */}
 
           <div className="chart-card">
 
@@ -843,17 +767,13 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart
-                  data={history}
-                >
+                <LineChart data={history}>
 
                   <CartesianGrid
                     strokeDasharray="3 3"
                   />
 
-                  <XAxis
-                    dataKey="time"
-                  />
+                  <XAxis dataKey="time" />
 
                   <YAxis />
 
@@ -879,9 +799,7 @@ function Dashboard({
 
           </div>
 
-          {/* ================================
-              POWER HISTORY
-          ================================ */}
+          {/* POWER */}
 
           <div className="chart-card">
 
@@ -905,17 +823,13 @@ function Dashboard({
                 height={260}
               >
 
-                <LineChart
-                  data={history}
-                >
+                <LineChart data={history}>
 
                   <CartesianGrid
                     strokeDasharray="3 3"
                   />
 
-                  <XAxis
-                    dataKey="time"
-                  />
+                  <XAxis dataKey="time" />
 
                   <YAxis
                     domain={[0, 1]}
@@ -946,9 +860,7 @@ function Dashboard({
 
           </div>
 
-          {/* ================================
-              DEVICE CONNECTIVITY
-          ================================ */}
+          {/* CONNECTIVITY */}
 
           <div className="chart-card">
 
@@ -980,9 +892,7 @@ function Dashboard({
                     strokeDasharray="3 3"
                   />
 
-                  <XAxis
-                    dataKey="time"
-                  />
+                  <XAxis dataKey="time" />
 
                   <YAxis
                     domain={[0, 1]}
@@ -1015,9 +925,7 @@ function Dashboard({
 
         </section>
 
-        {/* ==================================
-            RECENT READINGS
-        ================================== */}
+        {/* RECENT READINGS */}
 
         <section className="history-section">
 
@@ -1041,27 +949,11 @@ function Dashboard({
               <thead>
 
                 <tr>
-
-                  <th>
-                    {t.time}
-                  </th>
-
-                  <th>
-                    {t.temperature}
-                  </th>
-
-                  <th>
-                    {t.humidity}
-                  </th>
-
-                  <th>
-                    {t.power}
-                  </th>
-
-                  <th>
-                    {t.device}
-                  </th>
-
+                  <th>{t.time}</th>
+                  <th>{t.temperature}</th>
+                  <th>{t.humidity}</th>
+                  <th>{t.power}</th>
+                  <th>{t.device}</th>
                 </tr>
 
               </thead>
@@ -1071,43 +963,37 @@ function Dashboard({
                 {[...history]
                   .reverse()
                   .map(
-                    (
-                      reading,
-                      index
-                    ) => (
+                    (reading, index) => (
 
-                    <tr key={index}>
+                      <tr key={index}>
 
-                      <td>
-                        {reading.time}
-                      </td>
+                        <td>
+                          {reading.time}
+                        </td>
 
-                      <td>
-                        {
-                          reading.temperature
-                        }
-                        °C
-                      </td>
+                        <td>
+                          {reading.temperature}
+                          °C
+                        </td>
 
-                      <td>
-                        {reading.humidity}%
-                      </td>
+                        <td>
+                          {reading.humidity}%
+                        </td>
 
-                      <td>
+                        <td>
+                          {reading.power === 1
+                            ? t.on
+                            : t.failure}
+                        </td>
 
-                        {reading.power === 1
-                          ? t.on
-                          : t.failure}
+                        <td>
+                          {t.online}
+                        </td>
 
-                      </td>
+                      </tr>
 
-                      <td>
-                        {t.online}
-                      </td>
-
-                    </tr>
-
-                  ))}
+                    )
+                  )}
 
               </tbody>
 
@@ -1117,9 +1003,7 @@ function Dashboard({
 
         </section>
 
-        {/* ==================================
-            LAST DATA RECEIVED
-        ================================== */}
+        {/* LAST UPDATE */}
 
         <section className="last-update-card">
 
@@ -1128,14 +1012,11 @@ function Dashboard({
           </span>
 
           <p>
-
             {t.lastDataReceived}:
-
             <strong>
               {" "}
               {lastUpdated}
             </strong>
-
           </p>
 
         </section>

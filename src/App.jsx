@@ -1,15 +1,17 @@
 import { useState } from "react";
-import Login from "./components/Login";
-import Dashboard from "./components/Dashboard";
+import Login from "./components/Logintemp";
+import Dashboard from "./components/Dashboardtemp";
 
 function App() {
   const [farmer, setFarmer] = useState(null);
-
-  // Website language
   const [language, setLanguage] = useState("en");
 
   const handleLogin = (farmerData) => {
     setFarmer(farmerData);
+
+    if (farmerData.language) {
+      setLanguage(farmerData.language);
+    }
   };
 
   const handleLogout = () => {
