@@ -26,7 +26,6 @@ const farmerSchema = new mongoose.Schema(
     simNumber: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
 
