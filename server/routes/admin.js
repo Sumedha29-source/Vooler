@@ -3,213 +3,392 @@ const Farmer = require("../models/Farmers");
 
 const router = express.Router();
 
-// ========================================
-// CHECK ADMIN KEY
-// ========================================
+
+// =====================================================
+// ADMIN AUTH MIDDLEWARE
+// =====================================================
 
 const verifyAdmin = (req, res, next) => {
-  const adminKey = req.header("x-admin-key");
+
+  const adminKey =
+    req.header("x-admin-key");
+
 
   if (!adminKey) {
+
     return res.status(401).json({
       success: false,
       message: "Admin key required",
     });
+
   }
 
-  if (adminKey !== process.env.ADMIN_KEY) {
+
+  if (
+    adminKey !==
+    process.env.ADMIN_KEY
+  ) {
+
     return res.status(401).json({
       success: false,
       message: "Invalid admin key",
     });
+
   }
+
 
   next();
 };
 
 
-// ========================================
-// VERIFY ADMIN LOGIN
-// POST /api/admin/verify
-// ========================================
+// =====================================================
+// VERIFY ADMIN KEY
+// =====================================================
 
 router.post(
   "/verify",
   verifyAdmin,
   (req, res) => {
+
     res.json({
       success: true,
-      message: "Admin access granted",
+      message:
+        "Admin verified successfully",
     });
+
   }
 );
 
 
-// ========================================
-// REGISTER NEW FARMER
-// POST /api/admin/register
-// ========================================
+// =====================================================
+// REGISTER FARMER
+// =====================================================
 
 router.post(
   "/register",
   verifyAdmin,
   async (req, res) => {
+
     try {
+
       const {
         name,
         phone,
         simNumber,
-        storageId,
         language,
-        deviceKey,
       } = req.body;
 
-      // Check required fields
+
+      // ---------------------------------------------
+      // REQUIRED FIELDS
+      // ---------------------------------------------
+
       if (
         !name ||
         !phone ||
-        !simNumber ||
-        !storageId ||
-        !language ||
-        !deviceKey
+        !simNumber
       ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "All farmer and device details are required",
-        });
+
+        return res
+          .status(400)
+          .json({
+
+            success: false,
+
+            message:
+              "Name, phone number and SIM number are required",
+
+          });
+
       }
 
-      // Check mobile numbers
-      if (!/^\d{10}$/.test(phone)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Farmer mobile number must contain 10 digits",
-        });
+
+      // ---------------------------------------------
+      // CLEAN VALUES
+      // ---------------------------------------------
+
+      const cleanName =
+        name.trim();
+
+      const cleanPhone =
+        phone.trim();
+
+      const cleanSimNumber =
+        simNumber.trim();
+
+      const cleanLanguage =
+        language || "en";
+
+
+      // ---------------------------------------------
+      // PHONE VALIDATION
+      // ---------------------------------------------
+
+      if (
+        !/^\d{10}$/.test(
+          cleanPhone
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+
+            success: false,
+
+            message:
+              "Farmer mobile number must contain exactly 10 digits",
+
+          });
+
       }
 
-      if (!/^\d{10}$/.test(simNumber)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "SIM800L mobile number must contain 10 digits",
-        });
+
+      // ---------------------------------------------
+      // SIM NUMBER VALIDATION
+      // ---------------------------------------------
+
+      if (
+        !/^\d{10}$/.test(
+          cleanSimNumber
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+
+            success: false,
+
+            message:
+              "SIM number must contain exactly 10 digits",
+
+          });
+
       }
 
-      // Check language
-      const supportedLanguages = [
+
+      // ---------------------------------------------
+      // LANGUAGE VALIDATION
+      // ---------------------------------------------
+
+      const allowedLanguages = [
         "en",
         "bn",
         "hi",
         "as",
       ];
 
+
       if (
-        !supportedLanguages.includes(language)
+        !allowedLanguages.includes(
+          cleanLanguage
+        )
       ) {
-        return res.status(400).json({
-          success: false,
-          message: "Unsupported language",
-        });
+
+        return res
+          .status(400)
+          .json({
+
+            success: false,
+
+            message:
+              "Invalid language selected",
+
+          });
+
       }
 
-      // Check whether any value is already registered
+
+      // ---------------------------------------------
+      // CHECK FARMER PHONE ONLY
+      // ---------------------------------------------
+
       const existingFarmer =
         await Farmer.findOne({
-          $or: [
-            { phone: phone.trim() },
-            { storageId: storageId.trim() },
-            { deviceKey: deviceKey.trim() },
-          ],
+
+          phone: cleanPhone,
+
         });
+
 
       if (existingFarmer) {
-        return res.status(409).json({
-          success: false,
-          message:
-            "Farmer mobile number, storage ID or device key already exists",
-        });
+
+        return res
+          .status(409)
+          .json({
+
+            success: false,
+
+            message:
+              "This farmer mobile number is already registered",
+
+          });
+
       }
 
-      // Create farmer
-      const farmer = await Farmer.create({
-        name: name.trim(),
-        phone: phone.trim(),
-        simNumber: simNumber.trim(),
-        storageId: storageId.trim(),
-        language,
-        deviceKey: deviceKey.trim(),
-      });
 
-      res.status(201).json({
-        success: true,
-        message:
-          "Farmer registered successfully",
+      // ---------------------------------------------
+      // CREATE FARMER
+      //
+      // storageId and deviceKey are NOT entered
+      // by the admin anymore.
+      //
+      // Farmers.js automatically assigns:
+      //
+      // storageId = CS001
+      // deviceKey = vooler-device-001
+      // ---------------------------------------------
 
-        farmer: {
-          id: farmer._id,
-          name: farmer.name,
-          phone: farmer.phone,
-          simNumber: farmer.simNumber,
-          storageId: farmer.storageId,
-          language: farmer.language,
-        },
-      });
+      const farmer =
+        new Farmer({
+
+          name: cleanName,
+
+          phone: cleanPhone,
+
+          simNumber:
+            cleanSimNumber,
+
+          language:
+            cleanLanguage,
+
+        });
+
+
+      await farmer.save();
+
+
+      // ---------------------------------------------
+      // SUCCESS
+      // ---------------------------------------------
+
+      return res
+        .status(201)
+        .json({
+
+          success: true,
+
+          message:
+            "Farmer registered successfully",
+
+          farmer: {
+
+            id: farmer._id,
+
+            name:
+              farmer.name,
+
+            phone:
+              farmer.phone,
+
+            simNumber:
+              farmer.simNumber,
+
+            storageId:
+              farmer.storageId,
+
+            deviceKey:
+              farmer.deviceKey,
+
+            language:
+              farmer.language,
+
+          },
+
+        });
+
     } catch (error) {
+
       console.error(
-        "Admin registration error:",
+        "Farmer registration error:",
         error
       );
 
-      // MongoDB duplicate-key error
-      if (error.code === 11000) {
-        return res.status(409).json({
-          success: false,
-          message:
-            "One of these details is already registered",
-        });
+
+      if (
+        error.code === 11000
+      ) {
+
+        return res
+          .status(409)
+          .json({
+
+            success: false,
+
+            message:
+              "This farmer is already registered",
+
+          });
+
       }
 
-      res.status(500).json({
-        success: false,
-        message: "Server error",
-      });
+
+      return res
+        .status(500)
+        .json({
+
+          success: false,
+
+          message:
+            "Server error while registering farmer",
+
+        });
+
     }
+
   }
 );
 
 
-// ========================================
-// GET REGISTERED FARMERS
-// GET /api/admin/farmers
-// ========================================
+// =====================================================
+// GET ALL FARMERS
+// =====================================================
 
 router.get(
   "/farmers",
   verifyAdmin,
   async (req, res) => {
-    try {
-      const farmers = await Farmer.find()
-        .select("-deviceKey")
-        .sort({ createdAt: -1 });
 
-      res.json({
+    try {
+
+      const farmers =
+        await Farmer
+          .find()
+          .sort({
+            createdAt: -1,
+          });
+
+
+      return res.json({
+
         success: true,
-        count: farmers.length,
+
         farmers,
+
       });
+
     } catch (error) {
+
       console.error(
         "Fetch farmers error:",
         error
       );
 
-      res.status(500).json({
-        success: false,
-        message: "Server error",
-      });
+
+      return res
+        .status(500)
+        .json({
+
+          success: false,
+
+          message:
+            "Unable to fetch farmers",
+
+        });
+
     }
+
   }
 );
 

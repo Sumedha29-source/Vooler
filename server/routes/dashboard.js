@@ -2,6 +2,7 @@ const express = require("express");
 const Farmer = require("../models/Farmers");
 const Reading = require("../models/Readings");
 
+
 const router = express.Router();
 
 // ========================================

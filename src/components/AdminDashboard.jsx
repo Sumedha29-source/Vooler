@@ -3,23 +3,41 @@ import { API_BASE_URL } from "../config";
 
 function AdminDashboard({
   adminKey,
-  onAdminLogout,
+  onLogout,
 }) {
-  const [farmers, setFarmers] = useState([]);
+  // =====================================================
+  // FORM STATE
+  // =====================================================
 
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    simNumber: "",
-    storageId: "",
-    language: "en",
-    deviceKey: "",
-  });
+  const [name, setName] =
+    useState("");
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [phone, setPhone] =
+    useState("");
 
-  const loadFarmers = async () => {
+  const [simNumber, setSimNumber] =
+    useState("");
+
+  const [language, setLanguage] =
+    useState("en");
+
+  const [farmers, setFarmers] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  // =====================================================
+  // FETCH FARMERS
+  // =====================================================
+
+  const fetchFarmers = async () => {
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/admin/farmers`,
@@ -30,44 +48,60 @@ function AdminDashboard({
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
-        setError(
+        throw new Error(
           data.message ||
-            "Unable to load farmers"
+            "Unable to fetch farmers"
         );
-        return;
       }
 
-      setFarmers(data.farmers || []);
-    } catch (error) {
-      console.error(error);
+      setFarmers(
+        data.farmers || []
+      );
+    } catch (err) {
+      console.error(
+        "Fetch farmers error:",
+        err
+      );
 
       setError(
-        "Unable to connect to server."
+        err.message
       );
     }
   };
 
   useEffect(() => {
-    loadFarmers();
+    fetchFarmers();
   }, []);
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-  };
+  // =====================================================
+  // REGISTER FARMER
+  // =====================================================
 
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
     setMessage("");
     setError("");
 
+    if (
+      !name.trim() ||
+      !phone.trim() ||
+      !simNumber.trim()
+    ) {
+      setError(
+        "Please fill in all required fields."
+      );
+
+      return;
+    }
+
     try {
+      setLoading(true);
+
       const response = await fetch(
         `${API_BASE_URL}/api/admin/register`,
         {
@@ -81,16 +115,23 @@ function AdminDashboard({
               adminKey,
           },
 
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            name: name.trim(),
+            phone: phone.trim(),
+            simNumber:
+              simNumber.trim(),
+            language,
+          }),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         setError(
           data.message ||
-            "Registration failed"
+            "Unable to register farmer"
         );
 
         return;
@@ -100,142 +141,216 @@ function AdminDashboard({
         "Farmer registered successfully."
       );
 
-      setForm({
-        name: "",
-        phone: "",
-        simNumber: "",
-        storageId: "",
-        language: "en",
-        deviceKey: "",
-      });
+      // Clear form
+      setName("");
+      setPhone("");
+      setSimNumber("");
+      setLanguage("en");
 
-      loadFarmers();
-
-    } catch (error) {
-      console.error(error);
+      // Refresh table
+      await fetchFarmers();
+    } catch (err) {
+      console.error(
+        "Register farmer error:",
+        err
+      );
 
       setError(
-        "Unable to connect to server."
+        "Unable to contact VOOLER server."
       );
+    } finally {
+      setLoading(false);
     }
   };
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
     <div className="dashboard-page">
 
+      {/* =====================================
+          NAVBAR
+      ===================================== */}
+
       <nav className="dashboard-navbar">
 
         <div className="dashboard-logo">
-          ❄ VOOLER ADMIN
+          ❄ VOOLER Admin
         </div>
 
-        <button
-          onClick={onAdminLogout}
-        >
-          Logout
-        </button>
+        <div className="dashboard-nav-right">
+
+          <button
+            type="button"
+            onClick={onLogout}
+          >
+            Logout
+          </button>
+
+        </div>
 
       </nav>
 
       <main className="dashboard-main">
 
+        {/* =====================================
+            PAGE HEADER
+        ===================================== */}
+
         <section className="dashboard-header">
 
           <div>
+
             <h1>
-              Admin Portal
+              Admin Dashboard
             </h1>
 
             <p>
-              Register farmers and assign
-              VOOLER cold-storage units.
+              Register farmers and
+              manage VOOLER access.
             </p>
+
           </div>
 
         </section>
 
-        <section className="chart-card">
+        {/* =====================================
+            SINGLE DEVICE INFORMATION
+        ===================================== */}
+
+        <section className="storage-status-card safe">
+
+          <p className="status-title">
+            ASSIGNED VOOLER DEVICE
+          </p>
 
           <h2>
-            👨‍🌾 Register New Farmer
+            📦 CS001
           </h2>
 
+          <p>
+            All farmers are connected
+            to the same prototype
+            storage unit.
+          </p>
+
+          <p>
+            Device Key:{" "}
+            <strong>
+              vooler-device-001
+            </strong>
+          </p>
+
+        </section>
+
+        {/* =====================================
+            REGISTER FARMER
+        ===================================== */}
+
+        <section className="history-section">
+
+          <div className="section-heading">
+
+            <h2>
+              👨‍🌾 Register Farmer
+            </h2>
+
+            <span>
+              New farmer
+            </span>
+
+          </div>
+
           <form
-            onSubmit={handleSubmit}
+            onSubmit={
+              handleRegister
+            }
           >
 
+            {/* NAME */}
+
             <div className="form-group">
+
               <label>
                 Farmer Name
               </label>
 
               <input
-                name="name"
                 type="text"
-                value={form.name}
-                onChange={handleChange}
+                value={name}
+                onChange={(e) =>
+                  setName(
+                    e.target.value
+                  )
+                }
                 placeholder="Enter farmer name"
-                required
               />
+
             </div>
 
+            {/* PHONE */}
+
             <div className="form-group">
+
               <label>
                 Farmer Mobile Number
               </label>
 
               <input
-                name="phone"
-                type="tel"
-                value={form.phone}
-                onChange={handleChange}
+                type="text"
+                value={phone}
+                onChange={(e) =>
+                  setPhone(
+                    e.target.value
+                  )
+                }
+                maxLength={10}
                 placeholder="10-digit mobile number"
-                maxLength="10"
-                required
               />
+
             </div>
 
+            {/* SIM NUMBER */}
+
             <div className="form-group">
+
               <label>
                 SIM800L Number
               </label>
 
               <input
-                name="simNumber"
-                type="tel"
-                value={form.simNumber}
-                onChange={handleChange}
-                placeholder="SIM number inside device"
-                maxLength="10"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>
-                Storage ID
-              </label>
-
-              <input
-                name="storageId"
                 type="text"
-                value={form.storageId}
-                onChange={handleChange}
-                placeholder="Example: CS002"
-                required
+                value={simNumber}
+                onChange={(e) =>
+                  setSimNumber(
+                    e.target.value
+                  )
+                }
+                maxLength={10}
+                placeholder="10-digit SIM number"
               />
+
             </div>
 
+            {/* LANGUAGE */}
+
             <div className="form-group">
+
               <label>
                 Preferred Language
               </label>
 
               <select
-                name="language"
-                value={form.language}
-                onChange={handleChange}
+                value={language}
+                onChange={(e) =>
+                  setLanguage(
+                    e.target.value
+                  )
+                }
               >
+
                 <option value="en">
                   English
                 </option>
@@ -251,62 +366,82 @@ function AdminDashboard({
                 <option value="as">
                   অসমীয়া
                 </option>
+
               </select>
+
             </div>
 
-            <div className="form-group">
-              <label>
-                Device Key
-              </label>
+            {/* INFO */}
 
-              <input
-                name="deviceKey"
-                type="text"
-                value={form.deviceKey}
-                onChange={handleChange}
-                placeholder="Example: vooler-device-002"
-                required
-              />
+            <div className="alert-safe">
+
+              📦 Storage ID{" "}
+              <strong>
+                CS001
+              </strong>{" "}
+              and device key are
+              assigned automatically.
+
             </div>
 
-            {message && (
-              <div className="alert-safe">
-                ✅ {message}
-              </div>
-            )}
+            {/* ERROR */}
 
             {error && (
+
               <div className="alert-danger">
+
                 ❌ {error}
+
               </div>
+
+            )}
+
+            {/* SUCCESS */}
+
+            {message && (
+
+              <div className="alert-safe">
+
+                ✅ {message}
+
+              </div>
+
             )}
 
             <button
-              className="login-button"
               type="submit"
+              className="login-button"
+              disabled={loading}
+              style={{
+                marginTop:
+                  "18px",
+              }}
             >
-              Register Farmer
+
+              {loading
+                ? "Registering..."
+                : "Register Farmer"}
+
             </button>
 
           </form>
 
         </section>
 
-        <section
-          className="history-section"
-          style={{
-            marginTop: "25px",
-          }}
-        >
+        {/* =====================================
+            REGISTERED FARMERS
+        ===================================== */}
+
+        <section className="history-section">
 
           <div className="section-heading">
 
             <h2>
-              📋 Registered Farmers
+              👥 Registered Farmers
             </h2>
 
             <span>
-              {farmers.length} farmers
+              {farmers.length} total
             </span>
 
           </div>
@@ -316,45 +451,94 @@ function AdminDashboard({
             <table className="history-table">
 
               <thead>
+
                 <tr>
-                  <th>Name</th>
-                  <th>Mobile</th>
-                  <th>Storage ID</th>
-                  <th>SIM800L</th>
-                  <th>Language</th>
+
+                  <th>
+                    Name
+                  </th>
+
+                  <th>
+                    Mobile
+                  </th>
+
+                  <th>
+                    SIM Number
+                  </th>
+
+                  <th>
+                    Storage
+                  </th>
+
+                  <th>
+                    Language
+                  </th>
+
                 </tr>
+
               </thead>
 
               <tbody>
 
-                {farmers.map(
-                  (farmer) => (
+                {farmers.length ===
+                0 ? (
 
-                    <tr key={farmer._id}>
+                  <tr>
 
-                      <td>
-                        {farmer.name}
-                      </td>
+                    <td
+                      colSpan="5"
+                      style={{
+                        textAlign:
+                          "center",
+                      }}
+                    >
+                      No farmers registered.
+                    </td>
 
-                      <td>
-                        {farmer.phone}
-                      </td>
+                  </tr>
 
-                      <td>
-                        {farmer.storageId}
-                      </td>
+                ) : (
 
-                      <td>
-                        {farmer.simNumber}
-                      </td>
+                  farmers.map(
+                    (farmer) => (
 
-                      <td>
-                        {farmer.language}
-                      </td>
+                      <tr
+                        key={
+                          farmer._id
+                        }
+                      >
 
-                    </tr>
+                        <td>
+                          {farmer.name}
+                        </td>
 
+                        <td>
+                          {farmer.phone}
+                        </td>
+
+                        <td>
+                          {
+                            farmer.simNumber
+                          }
+                        </td>
+
+                        <td>
+                          {
+                            farmer.storageId
+                          }
+                        </td>
+
+                        <td>
+                          {
+                            farmer.language
+                          }
+                        </td>
+
+                      </tr>
+
+                    )
                   )
+
                 )}
 
               </tbody>

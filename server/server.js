@@ -7,6 +7,7 @@ const authRoutes = require("./routes/auth");
 const deviceRoutes = require("./routes/device");
 const dashboardRoutes = require("./routes/dashboard");
 const adminRoutes = require("./routes/admin");
+const deviceControlRoutes = require("./routes/deviceControl");
 
 dotenv.config();
 
@@ -16,10 +17,8 @@ const app = express();
 // MIDDLEWARE
 // ========================================
 
-// Allow frontend requests
 app.use(cors());
 
-// Allow JSON request bodies
 app.use(express.json());
 
 
@@ -27,21 +26,39 @@ app.use(express.json());
 // API ROUTES
 // ========================================
 
-// Farmer login / auth routes
-app.use("/api/auth", authRoutes);
+// Farmer login
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-// ESP32 / device data routes
-app.use("/api/device", deviceRoutes);
+// ESP32 sensor-data API
+app.use(
+  "/api/device",
+  deviceRoutes
+);
 
-// Dashboard data routes
-app.use("/api/dashboard", dashboardRoutes);
+// Farmer dashboard API
+app.use(
+  "/api/dashboard",
+  dashboardRoutes
+);
 
-// Admin portal routes
-app.use("/api/admin", adminRoutes);
+// Admin portal API
+app.use(
+  "/api/admin",
+  adminRoutes
+);
+
+// Emergency shutdown / resume commands
+app.use(
+  "/api/device-control",
+  deviceControlRoutes
+);
 
 
 // ========================================
-// ROOT TEST ROUTE
+// ROOT ROUTE
 // ========================================
 
 app.get("/", (req, res) => {
@@ -55,7 +72,8 @@ app.get("/", (req, res) => {
 // PORT
 // ========================================
 
-const PORT = process.env.PORT || 5000;
+const PORT =
+  process.env.PORT || 5000;
 
 
 // ========================================
@@ -64,7 +82,9 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
-    console.log("Connecting to MongoDB...");
+    console.log(
+      "Connecting to MongoDB..."
+    );
 
     await mongoose.connect(
       process.env.MONGO_URI,
