@@ -38,22 +38,6 @@ function Dashboard({
   const [error, setError] = useState("");
 
   // =====================================================
-  // EMERGENCY CONTROL
-  // =====================================================
-
-  const [emergencyShutdown, setEmergencyShutdown] =
-    useState(false);
-
-  const [controlLoading, setControlLoading] =
-    useState(false);
-
-  const [controlMessage, setControlMessage] =
-    useState("");
-
-  const [controlError, setControlError] =
-    useState("");
-
-  // =====================================================
   // FETCH DASHBOARD DATA
   // =====================================================
 
@@ -147,217 +131,64 @@ function Dashboard({
   }, [farmer.storageId, language]);
 
   // =====================================================
-  // FETCH EMERGENCY STATUS
-  // =====================================================
+// TEMPERATURE STORAGE CONDITION
+//
+// SAFE    : temp < 23°C
+// WARNING : 23°C to 30°C
+// UNSAFE  : temp > 30°C
+// =====================================================
 
-  useEffect(() => {
-    const fetchEmergencyStatus = async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/device-control/${farmer.storageId}`
-        );
+const getTempStatus = (temp) => {
 
-        const data = await response.json();
+  if (temp < 23) {
+    return "SAFE";
+  }
 
-        if (response.ok) {
-          setEmergencyShutdown(
-            data.emergencyShutdown
-          );
+  if (
+    temp >= 23 &&
+    temp <= 30
+  ) {
+    return "WARNING";
+  }
 
-          setControlError("");
-        }
-      } catch (err) {
-        console.error(
-          "Emergency status fetch error:",
-          err
-        );
-      }
-    };
-
-    fetchEmergencyStatus();
-
-    const interval = setInterval(
-      fetchEmergencyStatus,
-      10000
-    );
-
-    return () => clearInterval(interval);
-  }, [farmer.storageId]);
+  return "UNSAFE";
+};
 
   // =====================================================
-  // EMERGENCY SHUTDOWN
-  // =====================================================
+// HUMIDITY STORAGE CONDITION
+//
+// UNSAFE  : humidity < 45%
+// WARNING : 45% to <50%
+// SAFE    : 50% to 65%
+// WARNING : >65%
+//
+// =====================================================
 
-  const handleEmergencyShutdown = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to activate EMERGENCY SHUTDOWN?\n\nThis will order all controlled storage systems to stop."
-    );
+const getHumidityStatus = (hum) => {
 
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setControlLoading(true);
-      setControlMessage("");
-      setControlError("");
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/device-control/shutdown`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            phone: farmer.phone,
-            storageId: farmer.storageId,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setControlError(
-          data.message ||
-            "Emergency shutdown failed."
-        );
-
-        return;
-      }
-
-      setEmergencyShutdown(true);
-
-      setControlMessage(
-        "Emergency shutdown activated successfully."
-      );
-    } catch (err) {
-      console.error(
-        "Emergency shutdown error:",
-        err
-      );
-
-      setControlError(
-        "Unable to contact VOOLER server."
-      );
-    } finally {
-      setControlLoading(false);
-    }
-  };
-
-  // =====================================================
-  // RESUME SYSTEM
-  // =====================================================
-
-  const handleResumeSystem = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to resume normal VOOLER operation?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setControlLoading(true);
-      setControlMessage("");
-      setControlError("");
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/device-control/resume`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            phone: farmer.phone,
-            storageId: farmer.storageId,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setControlError(
-          data.message ||
-            "Unable to resume system."
-        );
-
-        return;
-      }
-
-      setEmergencyShutdown(false);
-
-      setControlMessage(
-        "Normal VOOLER operation resumed."
-      );
-    } catch (err) {
-      console.error(
-        "Resume system error:",
-        err
-      );
-
-      setControlError(
-        "Unable to contact VOOLER server."
-      );
-    } finally {
-      setControlLoading(false);
-    }
-  };
-
-  // =====================================================
-  // NEW TEMPERATURE CONDITIONS
-  //
-  // SAFE    : 10°C - 22°C
-  // WARNING : >22°C - 26°C
-  // UNSAFE  : <10°C OR >26°C
-  // =====================================================
-
-  const getTempStatus = (temp) => {
-    if (temp >= 10 && temp <= 22) {
-      return "SAFE";
-    }
-
-    if (temp > 22 && temp <= 26) {
-      return "WARNING";
-    }
-
+  if (hum < 45) {
     return "UNSAFE";
-  };
+  }
+
+  if (
+    hum >= 50 &&
+    hum <= 65
+  ) {
+    return "SAFE";
+  }
+
+  return "WARNING";
+};
 
   // =====================================================
-  // NEW HUMIDITY CONDITIONS
-  //
-  // SAFE    : <40%
-  // WARNING : 40% - <50%
-  // UNSAFE  : >=50%
+  // CALCULATE CURRENT SENSOR STATUS
   // =====================================================
-
-  const getHumidityStatus = (hum) => {
-    if (hum < 40) {
-      return "SAFE";
-    }
-
-    if (hum >= 40 && hum < 50) {
-      return "WARNING";
-    }
-
-    return "UNSAFE";
-  };
 
   const temperatureStatus =
     getTempStatus(temperature);
 
   const humidityStatus =
     getHumidityStatus(humidity);
-
   // =====================================================
   // TRANSLATED STATUS
   // =====================================================
@@ -587,27 +418,6 @@ function Dashboard({
           </div>
 
         </section>
-
-        {/* EMERGENCY ACTIVE BANNER */}
-
-        {emergencyShutdown && (
-
-          <div className="alert-danger">
-
-            🚨{" "}
-
-            <strong>
-              EMERGENCY SHUTDOWN ACTIVE
-            </strong>
-
-            <br />
-
-            Emergency shutdown has been
-            requested for this VOOLER unit.
-
-          </div>
-
-        )}
 
         {/* STORAGE CONDITION */}
 
@@ -899,158 +709,6 @@ function Dashboard({
 
             <div className="alert-danger">
               📡 {t.deviceOfflineMessage}
-            </div>
-
-          )}
-
-        </section>
-
-        {/* EMERGENCY CONTROL */}
-
-        <section className="emergency-panel">
-
-          <div className="emergency-panel-header">
-
-            <div className="emergency-title-group">
-
-              <div className="emergency-icon">
-                ⚠️
-              </div>
-
-              <div>
-
-                <h2>
-                  Emergency Shutdown
-                </h2>
-
-                <p>
-                  Use this control only when
-                  the storage unit needs to
-                  be stopped immediately.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div
-              className={
-                emergencyShutdown
-                  ? "emergency-status active"
-                  : "emergency-status normal"
-              }
-            >
-
-              {emergencyShutdown
-                ? "SHUTDOWN ACTIVE"
-                : "SYSTEM ACTIVE"}
-
-            </div>
-
-          </div>
-
-          {!emergencyShutdown ? (
-
-            <div className="emergency-action-area">
-
-              <div className="emergency-warning-text">
-
-                <strong>
-                  ⚠ Important
-                </strong>
-
-                <span>
-                  Activating emergency
-                  shutdown will stop all
-                  controlled systems
-                  connected to this VOOLER
-                  storage unit.
-                </span>
-
-              </div>
-
-              <button
-                type="button"
-                className="emergency-shutdown-button"
-                onClick={
-                  handleEmergencyShutdown
-                }
-                disabled={
-                  controlLoading
-                }
-              >
-
-                {controlLoading
-                  ? "Processing..."
-                  : "🚨 EMERGENCY SHUTDOWN"}
-
-              </button>
-
-            </div>
-
-          ) : (
-
-            <div className="emergency-active-box">
-
-              <div className="emergency-active-message">
-
-                <span className="emergency-active-icon">
-                  🚨
-                </span>
-
-                <div>
-
-                  <h3>
-                    Emergency Shutdown Active
-                  </h3>
-
-                  <p>
-                    The storage unit has
-                    received an emergency
-                    shutdown command.
-                  </p>
-
-                </div>
-
-              </div>
-
-              <button
-                type="button"
-                className="resume-system-button"
-                onClick={
-                  handleResumeSystem
-                }
-                disabled={
-                  controlLoading
-                }
-              >
-
-                {controlLoading
-                  ? "Processing..."
-                  : "▶ Resume Normal Operation"}
-
-              </button>
-
-            </div>
-
-          )}
-
-          {controlMessage && (
-
-            <div className="control-success-message">
-
-              ✅ {controlMessage}
-
-            </div>
-
-          )}
-
-          {controlError && (
-
-            <div className="control-error-message">
-
-              ❌ {controlError}
-
             </div>
 
           )}
