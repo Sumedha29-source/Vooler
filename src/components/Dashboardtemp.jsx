@@ -110,8 +110,6 @@ function Dashboard({
 
               power: reading.power ? 1 : 0,
 
-              // A stored reading means the device
-              // was online when that reading arrived.
               online: 1,
             };
           }
@@ -315,18 +313,19 @@ function Dashboard({
   };
 
   // =====================================================
-  // TEMPERATURE STATUS
+  // NEW TEMPERATURE CONDITIONS
+  //
+  // SAFE    : 10°C - 22°C
+  // WARNING : >22°C - 26°C
+  // UNSAFE  : <10°C OR >26°C
   // =====================================================
 
   const getTempStatus = (temp) => {
-    if (temp >= 5 && temp <= 10) {
+    if (temp >= 10 && temp <= 22) {
       return "SAFE";
     }
 
-    if (
-      (temp >= 3 && temp < 5) ||
-      (temp > 10 && temp <= 12)
-    ) {
+    if (temp > 22 && temp <= 26) {
       return "WARNING";
     }
 
@@ -334,18 +333,19 @@ function Dashboard({
   };
 
   // =====================================================
-  // HUMIDITY STATUS
+  // NEW HUMIDITY CONDITIONS
+  //
+  // SAFE    : <40%
+  // WARNING : 40% - <50%
+  // UNSAFE  : >=50%
   // =====================================================
 
   const getHumidityStatus = (hum) => {
-    if (hum >= 70 && hum <= 80) {
+    if (hum < 40) {
       return "SAFE";
     }
 
-    if (
-      (hum >= 60 && hum < 70) ||
-      (hum > 80 && hum <= 85)
-    ) {
+    if (hum >= 40 && hum < 50) {
       return "WARNING";
     }
 
@@ -460,7 +460,7 @@ function Dashboard({
   }
 
   // =====================================================
-  // LOADING SCREEN
+  // LOADING
   // =====================================================
 
   if (loading) {
@@ -488,9 +488,7 @@ function Dashboard({
   return (
     <div className="dashboard-page">
 
-      {/* =====================================
-          NAVBAR
-      ===================================== */}
+      {/* NAVBAR */}
 
       <nav className="dashboard-navbar">
 
@@ -504,36 +502,28 @@ function Dashboard({
 
             <button
               type="button"
-              onClick={() =>
-                setLanguage("bn")
-              }
+              onClick={() => setLanguage("bn")}
             >
               বাংলা
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                setLanguage("en")
-              }
+              onClick={() => setLanguage("en")}
             >
               English
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                setLanguage("hi")
-              }
+              onClick={() => setLanguage("hi")}
             >
               हिन्दी
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                setLanguage("as")
-              }
+              onClick={() => setLanguage("as")}
             >
               অসমীয়া
             </button>
@@ -550,9 +540,7 @@ function Dashboard({
 
       <main className="dashboard-main">
 
-        {/* =====================================
-            SERVER ERROR
-        ===================================== */}
+        {/* SERVER ERROR */}
 
         {error && (
           <div className="alert-danger">
@@ -560,9 +548,7 @@ function Dashboard({
           </div>
         )}
 
-        {/* =====================================
-            FARMER INFORMATION
-        ===================================== */}
+        {/* FARMER INFORMATION */}
 
         <section className="dashboard-header">
 
@@ -602,9 +588,7 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            EMERGENCY ACTIVE BANNER
-        ===================================== */}
+        {/* EMERGENCY ACTIVE BANNER */}
 
         {emergencyShutdown && (
 
@@ -625,9 +609,7 @@ function Dashboard({
 
         )}
 
-        {/* =====================================
-            STORAGE CONDITION
-        ===================================== */}
+        {/* STORAGE CONDITION */}
 
         <section
           className={`storage-status-card ${overallStatus.toLowerCase()}`}
@@ -665,9 +647,7 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            MONITORING CARDS
-        ===================================== */}
+        {/* MONITORING CARDS */}
 
         <section className="monitoring-grid">
 
@@ -795,9 +775,7 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            SMART ALERTS
-        ===================================== */}
+        {/* SMART ALERTS */}
 
         <section className="alerts-section">
 
@@ -927,9 +905,7 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            EMERGENCY CONTROL
-        ===================================== */}
+        {/* EMERGENCY CONTROL */}
 
         <section className="emergency-panel">
 
@@ -1081,13 +1057,11 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            GRAPHS
-        ===================================== */}
+        {/* GRAPHS */}
 
         <section className="charts-section">
 
-          {/* TEMPERATURE GRAPH */}
+          {/* TEMPERATURE */}
 
           <div className="chart-card">
 
@@ -1144,7 +1118,7 @@ function Dashboard({
 
           </div>
 
-          {/* HUMIDITY GRAPH */}
+          {/* HUMIDITY */}
 
           <div className="chart-card">
 
@@ -1201,7 +1175,7 @@ function Dashboard({
 
           </div>
 
-          {/* POWER GRAPH */}
+          {/* POWER */}
 
           <div className="chart-card">
 
@@ -1265,7 +1239,7 @@ function Dashboard({
 
           </div>
 
-          {/* CONNECTIVITY GRAPH */}
+          {/* CONNECTIVITY */}
 
           <div className="chart-card">
 
@@ -1335,9 +1309,7 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            RECENT READINGS
-        ===================================== */}
+        {/* RECENT READINGS */}
 
         <section className="history-section">
 
@@ -1438,9 +1410,7 @@ function Dashboard({
 
         </section>
 
-        {/* =====================================
-            LAST DATA RECEIVED
-        ===================================== */}
+        {/* LAST DATA RECEIVED */}
 
         <section className="last-update-card">
 
