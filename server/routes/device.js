@@ -1,284 +1,366 @@
 const express = require("express");
-const mongoose = require("mongoose");
 
 const Farmer = require("../models/Farmers");
 const Reading = require("../models/Readings");
 
 const router = express.Router();
 
-// ========================================
+
+// =====================================================
 // RECEIVE DATA FROM ESP32
-// ========================================
+// =====================================================
 
-router.post("/data", async (req, res) => {
-  try {
-    const {
-      storageId,
-      deviceKey,
-      temperature,
-      humidity,
-      power,
-      battery,
-      peltiersOn,
-    } = req.body;
+router.post(
+  "/data",
+  async (req, res) => {
 
-    // ========================================
-    // CHECK REQUIRED FIELDS
-    // ========================================
+    try {
 
-    if (
-      !storageId ||
-      !deviceKey ||
-      temperature === undefined ||
-      humidity === undefined ||
-      power === undefined
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required data",
-      });
-    }
+      const {
+        storageId,
+        deviceKey,
+        chamber1Temperature,
+        chamber2Temperature,
+        humidity,
+        power,
+      } = req.body;
 
-    // ========================================
-    // VERIFY REGISTERED VOOLER DEVICE
-    // ========================================
 
-    const farmer = await Farmer.findOne({
-      storageId: storageId.trim(),
-      deviceKey: deviceKey.trim(),
-    });
+      // =================================================
+      // REQUIRED FIELDS
+      // =================================================
 
-    if (!farmer) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid storage unit or device key",
-      });
-    }
+      if (
+        !storageId ||
+        !deviceKey ||
+        chamber1Temperature === undefined ||
+        chamber2Temperature === undefined ||
+        humidity === undefined ||
+        power === undefined
+      ) {
 
-    // ========================================
-    // CONVERT SENSOR VALUES
-    // ========================================
+        return res
+          .status(400)
+          .json({
+            success: false,
 
-    const tempValue =
-      Number(temperature);
+            message:
+              "storageId, deviceKey, chamber1Temperature, chamber2Temperature, humidity and power are required",
+          });
 
-    const humidityValue =
-      Number(humidity);
+      }
 
-    // ========================================
-    // VALIDATE TEMPERATURE + HUMIDITY
-    // ========================================
 
-    if (
-      !Number.isFinite(tempValue) ||
-      !Number.isFinite(humidityValue)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid sensor values",
-      });
-    }
+      // =================================================
+      // CLEAN STORAGE ID + DEVICE KEY
+      // =================================================
 
-    if (
-      humidityValue < 0 ||
-      humidityValue > 100
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Humidity must be between 0 and 100",
-      });
-    }
+      const cleanStorageId =
+        String(
+          storageId
+        ).trim();
 
-    // ========================================
-    // BATTERY
-    // ========================================
 
-    let batteryValue = 100;
+      const cleanDeviceKey =
+        String(
+          deviceKey
+        ).trim();
 
-    if (
-      battery !== undefined
-    ) {
-      batteryValue =
-        Number(battery);
+
+      // =================================================
+      // VERIFY DEVICE
+      // =================================================
+
+      const farmer =
+        await Farmer.findOne({
+          storageId:
+            cleanStorageId,
+
+          deviceKey:
+            cleanDeviceKey,
+        });
+
+
+      if (!farmer) {
+
+        return res
+          .status(401)
+          .json({
+            success: false,
+
+            message:
+              "Invalid storage ID or device key",
+          });
+
+      }
+
+
+      // =================================================
+      // CONVERT VALUES
+      // =================================================
+
+      const chamber1Value =
+        Number(
+          chamber1Temperature
+        );
+
+
+      const chamber2Value =
+        Number(
+          chamber2Temperature
+        );
+
+
+      const humidityValue =
+        Number(
+          humidity
+        );
+
+
+      // =================================================
+      // TEMPERATURE VALIDATION
+      // =================================================
 
       if (
         !Number.isFinite(
-          batteryValue
+          chamber1Value
         )
       ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid battery value",
-        });
+
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Invalid Chamber 1 temperature",
+          });
+
       }
+
 
       if (
-        batteryValue < 0 ||
-        batteryValue > 100
+        !Number.isFinite(
+          chamber2Value
+        )
       ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Battery must be between 0 and 100",
-        });
+
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Invalid Chamber 2 temperature",
+          });
+
       }
-    }
 
-    // ========================================
-    // SAVE READING TO MONGODB
-    // ========================================
 
-    const reading =
-      await Reading.create({
-        storageId:
-          farmer.storageId,
+      // =================================================
+      // HUMIDITY VALIDATION
+      // =================================================
 
-        temperature:
-          tempValue,
+      if (
+        !Number.isFinite(
+          humidityValue
+        )
+      ) {
 
-        humidity:
-          humidityValue,
+        return res
+          .status(400)
+          .json({
+            success: false,
 
-        power:
-          Boolean(power),
+            message:
+              "Invalid humidity value",
+          });
 
-        online:
-          true,
+      }
 
-        battery:
-          batteryValue,
 
-        peltiersOn:
-          peltiersOn !== undefined
-            ? Boolean(peltiersOn)
-            : false,
-      });
+      if (
+        humidityValue < 0 ||
+        humidityValue > 100
+      ) {
 
-    // ========================================
-    // DEBUG LOGS
-    // ========================================
+        return res
+          .status(400)
+          .json({
+            success: false,
 
-    console.log(
-      "===== READING SAVED ====="
-    );
+            message:
+              "Humidity must be between 0 and 100",
+          });
 
-    console.log(
-      "ID:",
-      reading._id.toString()
-    );
+      }
 
-    console.log(
-      "Database:",
-      mongoose.connection.name
-    );
 
-    console.log(
-      "Host:",
-      mongoose.connection.host
-    );
+      // =================================================
+      // POWER VALUE
+      // =================================================
 
-    console.log(
-      "Collection:",
-      Reading.collection.name
-    );
+      let powerValue;
 
-    console.log(
-      "Storage ID:",
-      reading.storageId
-    );
 
-    console.log(
-      "Temperature:",
-      reading.temperature
-    );
+      if (
+        typeof power ===
+        "boolean"
+      ) {
 
-    console.log(
-      "Humidity:",
-      reading.humidity
-    );
+        powerValue =
+          power;
 
-    console.log(
-      "Power:",
-      reading.power
-    );
+      }
+      else if (
+        power === 1 ||
+        power === "1" ||
+        power === "true"
+      ) {
 
-    console.log(
-      "Battery:",
-      reading.battery
-    );
+        powerValue =
+          true;
 
-    console.log(
-      "Peltiers ON:",
-      reading.peltiersOn
-    );
+      }
+      else if (
+        power === 0 ||
+        power === "0" ||
+        power === "false"
+      ) {
 
-    console.log(
-      "Created:",
-      reading.createdAt
-    );
+        powerValue =
+          false;
 
-    console.log(
-      "========================="
-    );
+      }
+      else {
 
-    // ========================================
-    // RESPONSE TO ESP32
-    // ========================================
+        return res
+          .status(400)
+          .json({
+            success: false,
 
-    return res
-      .status(201)
-      .json({
-        success: true,
+            message:
+              "Invalid power value",
+          });
 
-        message:
-          "Sensor data stored successfully",
+      }
 
-        reading: {
-          id:
-            reading._id,
+
+      // =================================================
+      // CREATE READING
+      // =================================================
+
+      const reading =
+        await Reading.create({
 
           storageId:
-            reading.storageId,
+            farmer.storageId,
 
-          temperature:
-            reading.temperature,
+          chamber1Temperature:
+            chamber1Value,
+
+          chamber2Temperature:
+            chamber2Value,
 
           humidity:
-            reading.humidity,
+            humidityValue,
 
           power:
-            reading.power,
+            powerValue,
 
           online:
-            reading.online,
+            true,
 
-          battery:
-            reading.battery,
+        });
 
-          peltiersOn:
-            reading.peltiersOn,
 
-          time:
-            reading.createdAt,
-        },
-      });
+      console.log(
+        "New VOOLER reading:",
+        {
+          storageId:
+            farmer.storageId,
 
-  } catch (error) {
+          chamber1Temperature:
+            chamber1Value,
 
-    console.error(
-      "Device data error:",
-      error
-    );
+          chamber2Temperature:
+            chamber2Value,
 
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Server error",
-      });
+          humidity:
+            humidityValue,
+
+          power:
+            powerValue,
+        }
+      );
+
+
+      // =================================================
+      // SUCCESS
+      // =================================================
+
+      return res
+        .status(201)
+        .json({
+          success: true,
+
+          message:
+            "Sensor data stored successfully",
+
+          reading: {
+
+            id:
+              reading._id,
+
+            storageId:
+              reading.storageId,
+
+            chamber1Temperature:
+              reading.chamber1Temperature,
+
+            chamber2Temperature:
+              reading.chamber2Temperature,
+
+            humidity:
+              reading.humidity,
+
+            power:
+              reading.power,
+
+            online:
+              reading.online,
+
+            timestamp:
+              reading.createdAt,
+
+          },
+        });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Device data error:"
+      );
+
+      console.error(
+        error
+      );
+
+
+      return res
+        .status(500)
+        .json({
+          success: false,
+
+          message:
+            "Server error while saving sensor data",
+        });
+
+    }
+
   }
-});
+);
+
 
 module.exports = router;
