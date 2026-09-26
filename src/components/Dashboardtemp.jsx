@@ -9,6 +9,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -1064,6 +1065,14 @@ function Dashboard({
 
 
   // =====================================================
+  // GRAPH TABS
+  // =====================================================
+
+  const [activeGraph, setActiveGraph] = useState("temperature");
+  const [showRecentReadings, setShowRecentReadings] = useState(false);
+
+
+  // =====================================================
   // CONNECTIVITY HISTORY
   // =====================================================
 
@@ -1522,6 +1531,27 @@ function Dashboard({
                     ? `${chamber1Temperature}°C`
                     : "-- °C"}
                 </div>
+
+                <div
+                  style={{
+                    marginTop: "10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    opacity: 0.65,
+                  }}
+                >
+                  Approx. time to reach
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "4px",
+                    fontSize: "15px",
+                    fontWeight: 700,
+                  }}
+                >
+                  ---- hrs
+                </div>
               </div>
             </div>
 
@@ -1567,6 +1597,27 @@ function Dashboard({
                     ? `${chamber2Temperature}°C`
                     : "-- °C"}
                 </div>
+
+                <div
+                  style={{
+                    marginTop: "10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    opacity: 0.65,
+                  }}
+                >
+                  Approx. time to reach
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "4px",
+                    fontSize: "15px",
+                    fontWeight: 700,
+                  }}
+                >
+                  ---- hrs
+                </div>
               </div>
             </div>
 
@@ -1577,6 +1628,8 @@ function Dashboard({
 
         </section>
 
+
+        <div className="alerts-emergency-grid">
 
         {/* =================================================
             EMERGENCY CONTROL
@@ -1947,592 +2000,282 @@ function Dashboard({
 
         </section>
 
+        </div>
+
 
         {/* =================================================
-            GRAPHS
+            SENSOR HISTORY - TABBED GRAPH
         ================================================= */}
 
-        <section className="charts-section">
+        <section
+          className="chart-card"
+          style={{ marginTop: "20px", marginBottom: "20px" }}
+        >
+          <div className="section-heading">
+            <h2>📊 Sensor History</h2>
+            <span>Recent readings</span>
+          </div>
 
-
-          {/* CHAMBER 1 */}
-
-          <div className="chart-card">
-
-            <div className="section-heading">
-
-              <h2>
-                🌡 Chamber 1 Temperature
-              </h2>
-
-
-              <span>
-                Recent readings
-              </span>
-
-            </div>
-
-
-            <div className="chart-container">
-
-              <ResponsiveContainer
-                width="100%"
-                height={260}
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+              marginBottom: "18px",
+            }}
+          >
+            {[
+              ["temperature", "🌡 Temperature"],
+              ["humidity", "💧 Humidity"],
+              ["power", "⚡ Power"],
+              ["connectivity", "📡 Device"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveGraph(key)}
+                style={{
+                  padding: "9px 14px",
+                  borderRadius: "9px",
+                  border:
+                    activeGraph === key
+                      ? "1px solid #148278"
+                      : "1px solid #d8e2df",
+                  background:
+                    activeGraph === key
+                      ? "#e8f5f3"
+                      : "#ffffff",
+                  color:
+                    activeGraph === key
+                      ? "#0f6e66"
+                      : "#344054",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
               >
+                {label}
+              </button>
+            ))}
+          </div>
 
-                <LineChart
-                  data={
-                    history
-                  }
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-
+          <div className="chart-container">
+            {activeGraph === "temperature" && (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={history}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
                   <YAxis />
-
-
                   <Tooltip
-
-                    formatter={
-                      (value) => [
-
-                        value ===
-                          null ||
-                        value ===
-                          undefined
-
-                          ? "No data"
-
-                          : `${value} °C`,
-
-                        "Temperature",
-
-                      ]
-                    }
-
+                    formatter={(value, name) => [
+                      value === null || value === undefined
+                        ? "No data"
+                        : `${value} °C`,
+                      name,
+                    ]}
                   />
-
-
+                  <Legend
+                    align="right"
+                    verticalAlign="top"
+                    iconType="line"
+                    wrapperStyle={{ paddingBottom: "12px" }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="chamber1Temperature"
                     name="Chamber 1"
+                    stroke="#0f8f83"
                     strokeWidth={3}
-                    dot={true}
+                    dot={{ r: 4, fill: "#0f8f83" }}
+                    activeDot={{ r: 6 }}
                     connectNulls={false}
                   />
-
-                </LineChart>
-
-              </ResponsiveContainer>
-
-            </div>
-
-          </div>
-
-
-          {/* CHAMBER 2 */}
-
-          <div className="chart-card">
-
-            <div className="section-heading">
-
-              <h2>
-                🌡 Chamber 2 Temperature
-              </h2>
-
-
-              <span>
-                Recent readings
-              </span>
-
-            </div>
-
-
-            <div className="chart-container">
-
-              <ResponsiveContainer
-                width="100%"
-                height={260}
-              >
-
-                <LineChart
-                  data={
-                    history
-                  }
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-
-                  <YAxis />
-
-
-                  <Tooltip
-
-                    formatter={
-                      (value) => [
-
-                        value ===
-                          null ||
-                        value ===
-                          undefined
-
-                          ? "No data"
-
-                          : `${value} °C`,
-
-                        "Temperature",
-
-                      ]
-                    }
-
-                  />
-
-
                   <Line
                     type="monotone"
                     dataKey="chamber2Temperature"
                     name="Chamber 2"
+                    stroke="#f28c28"
                     strokeWidth={3}
-                    dot={true}
+                    dot={{ r: 4, fill: "#f28c28" }}
+                    activeDot={{ r: 6 }}
                     connectNulls={false}
                   />
-
                 </LineChart>
-
               </ResponsiveContainer>
+            )}
 
-            </div>
-
-          </div>
-
-
-          {/* HUMIDITY */}
-
-          <div className="chart-card">
-
-            <div className="section-heading">
-
-              <h2>
-                💧 {t.humidityHistory}
-              </h2>
-
-
-              <span>
-                {t.recent}
-              </span>
-
-            </div>
-
-
-            <div className="chart-container">
-
-              <ResponsiveContainer
-                width="100%"
-                height={260}
-              >
-
-                <LineChart
-                  data={
-                    history
-                  }
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-
+            {activeGraph === "humidity" && (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={history}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
                   <YAxis />
-
-
                   <Tooltip
-
-                    formatter={
-                      (value) => [
-
-                        `${value}%`,
-
-                        t.humidity,
-
-                      ]
-                    }
-
+                    formatter={(value) => [
+                      `${value}%`,
+                      t.humidity,
+                    ]}
                   />
-
-
                   <Line
                     type="monotone"
                     dataKey="humidity"
+                    name={t.humidity}
                     strokeWidth={3}
                     dot={true}
                   />
-
                 </LineChart>
-
               </ResponsiveContainer>
+            )}
 
-            </div>
-
-          </div>
-
-
-          {/* POWER */}
-
-          <div className="chart-card">
-
-            <div className="section-heading">
-
-              <h2>
-                ⚡ {t.powerHistory}
-              </h2>
-
-
-              <span>
-
-                1 = {t.on} • 0 ={" "}
-                {t.failure}
-
-              </span>
-
-            </div>
-
-
-            <div className="chart-container">
-
-              <ResponsiveContainer
-                width="100%"
-                height={260}
-              >
-
-                <LineChart
-                  data={
-                    history
-                  }
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-
-                  <YAxis
-                    domain={[
-                      0,
-                      1,
-                    ]}
-                    ticks={[
-                      0,
-                      1,
-                    ]}
-                  />
-
-
+            {activeGraph === "power" && (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={history}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
+                  <YAxis domain={[0, 1]} ticks={[0, 1]} />
                   <Tooltip
-
-                    formatter={
-                      (value) => [
-
-                        value === 1
-
-                          ? t.powerAvailable
-
-                          : t.powerFailure,
-
-                        t.power,
-
-                      ]
-                    }
-
+                    formatter={(value) => [
+                      value === 1
+                        ? t.powerAvailable
+                        : t.powerFailure,
+                      t.power,
+                    ]}
                   />
-
-
                   <Line
                     type="stepAfter"
                     dataKey="power"
+                    name={t.power}
                     strokeWidth={3}
                     dot={true}
                   />
-
                 </LineChart>
-
               </ResponsiveContainer>
+            )}
 
-            </div>
-
-          </div>
-
-
-          {/* CONNECTIVITY */}
-
-          <div className="chart-card">
-
-            <div className="section-heading">
-
-              <h2>
-                📡 {t.connectivityHistory}
-              </h2>
-
-
-              <span>
-
-                1 = {t.online} • 0 ={" "}
-                {t.offline}
-
-              </span>
-
-            </div>
-
-
-            <div className="chart-container">
-
-              <ResponsiveContainer
-                width="100%"
-                height={260}
-              >
-
-                <LineChart
-                  data={
-                    connectivityHistory
-                  }
-                >
-
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                  />
-
-
-                  <XAxis
-                    dataKey="time"
-                  />
-
-
-                  <YAxis
-                    domain={[
-                      0,
-                      1,
-                    ]}
-                    ticks={[
-                      0,
-                      1,
-                    ]}
-                  />
-
-
+            {activeGraph === "connectivity" && (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={connectivityHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
+                  <YAxis domain={[0, 1]} ticks={[0, 1]} />
                   <Tooltip
-
-                    formatter={
-                      (value) => [
-
-                        value === 1
-
-                          ? t.deviceOnline
-
-                          : t.deviceOffline,
-
-                        t.device,
-
-                      ]
-                    }
-
+                    formatter={(value) => [
+                      value === 1
+                        ? t.deviceOnline
+                        : t.deviceOffline,
+                      t.device,
+                    ]}
                   />
-
-
                   <Line
                     type="stepAfter"
                     dataKey="online"
+                    name={t.device}
                     strokeWidth={3}
                     dot={true}
                   />
-
                 </LineChart>
-
               </ResponsiveContainer>
-
-            </div>
-
+            )}
           </div>
-
         </section>
 
 
         {/* =================================================
-            RECENT READINGS
+            RECENT READINGS - COLLAPSIBLE
         ================================================= */}
 
         <section className="history-section">
+          <button
+            type="button"
+            onClick={() => setShowRecentReadings((current) => !current)}
+            aria-expanded={showRecentReadings}
+            style={{
+              width: "100%",
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              cursor: "pointer",
+              textAlign: "left",
+            }}
+          >
+            <div className="section-heading" style={{ marginBottom: showRecentReadings ? "18px" : 0 }}>
+              <h2>📊 {t.recentReadings}</h2>
 
-          <div className="section-heading">
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  fontWeight: 700,
+                }}
+              >
+                {history.length} {t.recent}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    fontSize: "18px",
+                    lineHeight: 1,
+                    transform: showRecentReadings ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                >
+                  ▼
+                </span>
+              </span>
+            </div>
+          </button>
 
-            <h2>
-              📊 {t.recentReadings}
-            </h2>
+          {showRecentReadings && (
+            <div className="history-table-wrapper">
+              <table className="history-table">
+                <thead>
+                  <tr>
+                    <th>{t.time}</th>
+                    <th>Chamber 1</th>
+                    <th>Chamber 2</th>
+                    <th>{t.humidity}</th>
+                    <th>{t.power}</th>
+                    <th>{t.device}</th>
+                  </tr>
+                </thead>
 
-
-            <span>
-
-              {history.length}{" "}
-              {t.recent}
-
-            </span>
-
-          </div>
-
-
-          <div className="history-table-wrapper">
-
-            <table className="history-table">
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    {t.time}
-                  </th>
-
-                  <th>
-                    Chamber 1
-                  </th>
-
-                  <th>
-                    Chamber 2
-                  </th>
-
-                  <th>
-                    {t.humidity}
-                  </th>
-
-                  <th>
-                    {t.power}
-                  </th>
-
-                  <th>
-                    {t.device}
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
-              <tbody>
-
-                {[...history]
-                  .reverse()
-                  .map(
-                    (
-                      reading,
-                      index
-                    ) => (
-
-                      <tr
-
-                        key={
-                          reading.timestamp ||
-                          index
-                        }
-
-                      >
+                <tbody>
+                  {[...history]
+                    .reverse()
+                    .map((reading, index) => (
+                      <tr key={reading.timestamp || index}>
+                        <td>{reading.time}</td>
 
                         <td>
-                          {reading.time}
-                        </td>
-
-
-                        <td>
-
-                          {reading
-                            .chamber1Temperature !==
-                          null
-
+                          {reading.chamber1Temperature !== null
                             ? `${reading.chamber1Temperature}°C`
-
                             : "--"}
-
                         </td>
 
-
                         <td>
-
-                          {reading
-                            .chamber2Temperature !==
-                          null
-
+                          {reading.chamber2Temperature !== null
                             ? `${reading.chamber2Temperature}°C`
-
                             : "--"}
-
                         </td>
 
+                        <td>{reading.humidity}%</td>
 
                         <td>
-
-                          {reading.humidity}%
-
-                        </td>
-
-
-                        <td>
-
-                          {reading.power ===
-                          1
-
+                          {reading.power === 1
                             ? t.on
-
                             : t.failure}
-
                         </td>
-
 
                         <td>
-
-                          {reading.online ===
-                          1
-
+                          {reading.online === 1
                             ? t.online
-
                             : t.offline}
-
                         </td>
-
                       </tr>
-
-                    )
-                  )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
 

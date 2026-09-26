@@ -33,6 +33,9 @@ const deviceControlRoutes =
 const smsRoutes =
   require("./routes/sms");
 
+const weatherRoutes =
+  require("./routes/weather");
+
 
 // =====================================================
 // APP
@@ -82,6 +85,11 @@ app.use(
 app.use(
   "/api/sms",
   smsRoutes
+);
+
+app.use(
+  "/api/weather",
+  weatherRoutes
 );
 
 

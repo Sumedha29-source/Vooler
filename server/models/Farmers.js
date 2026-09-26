@@ -38,6 +38,32 @@ const farmerSchema = new mongoose.Schema(
       default: "vooler-device-001",
       immutable: true,
     },
+
+    // =====================================================
+    // COLD STORAGE INSTALLATION LOCATION
+    // =====================================================
+
+    location: {
+      latitude: {
+        type: Number,
+        min: -90,
+        max: 90,
+        default: null,
+      },
+
+      longitude: {
+        type: Number,
+        min: -180,
+        max: 180,
+        default: null,
+      },
+
+      placeName: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+    },
   },
   {
     timestamps: true,

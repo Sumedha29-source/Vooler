@@ -984,3 +984,102 @@ select {
   }
 
 }
+
+/* =====================================================
+   COMPACT DASHBOARD LAYOUT
+===================================================== */
+
+/* Reduce vertical space while keeping the existing cards readable. */
+.dashboard-main {
+  padding: 22px 0 32px;
+}
+
+.storage-status-card {
+  padding: 16px 22px;
+  margin-bottom: 14px;
+}
+
+.storage-status-card h2 {
+  margin: 6px 0;
+}
+
+.storage-status-card p:last-child {
+  margin-bottom: 0;
+}
+
+.monitoring-grid-top,
+.chamber-grid {
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.monitor-card {
+  padding: 18px 16px;
+}
+
+.card-icon {
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+.monitor-card h3 {
+  margin-bottom: 10px;
+}
+
+.sensor-value {
+  margin-bottom: 10px;
+}
+
+/* Alerts and emergency controls share one row on larger screens. */
+.alerts-emergency-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.alerts-emergency-grid .alerts-section,
+.alerts-emergency-grid .emergency-control-card {
+  margin: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.alerts-emergency-grid .alerts-section {
+  padding: 18px;
+}
+
+.alerts-emergency-grid .emergency-control-card {
+  padding: 18px;
+  align-content: center;
+}
+
+.alerts-emergency-grid .emergency-control-title {
+  font-size: 18px;
+}
+
+.alerts-emergency-grid .emergency-control-actions {
+  width: 100%;
+}
+
+.alerts-emergency-grid .emergency-shutdown-button,
+.alerts-emergency-grid .resume-system-button {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .alerts-emergency-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-main {
+    padding-top: 18px;
+  }
+
+  .monitor-card {
+    padding: 18px 14px;
+  }
+}

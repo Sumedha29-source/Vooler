@@ -16,7 +16,12 @@ router.post("/register", async (req, res) => {
       storageId,
       language,
       deviceKey,
+      location,
     } = req.body;
+
+    // ================================
+    // REQUIRED FIELD CHECK
+    // ================================
 
     if (
       !name ||
@@ -27,37 +32,114 @@ router.post("/register", async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "All required fields must be provided",
+        message:
+          "All required fields must be provided",
       });
     }
 
-    const existingFarmer = await Farmer.findOne({
-      $or: [
-        { phone },
-        { simNumber },
-        { storageId },
-      ],
-    });
+    // ================================
+    // LOCATION VALIDATION
+    // ================================
+
+    let installationLocation = {
+      latitude: null,
+      longitude: null,
+      placeName: "",
+    };
+
+    if (location) {
+      const latitude = Number(
+        location.latitude
+      );
+
+      const longitude = Number(
+        location.longitude
+      );
+
+      if (
+        !Number.isFinite(latitude) ||
+        latitude < -90 ||
+        latitude > 90
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid installation latitude",
+        });
+      }
+
+      if (
+        !Number.isFinite(longitude) ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid installation longitude",
+        });
+      }
+
+      installationLocation = {
+        latitude,
+        longitude,
+
+        placeName:
+          typeof location.placeName ===
+          "string"
+            ? location.placeName.trim()
+            : "",
+      };
+    }
+
+    // ================================
+    // CHECK EXISTING FARMER / STORAGE
+    // ================================
+
+    const existingFarmer =
+      await Farmer.findOne({
+        $or: [
+          { phone },
+          { simNumber },
+          { storageId },
+        ],
+      });
 
     if (existingFarmer) {
       return res.status(409).json({
         success: false,
-        message: "Farmer already exists",
+        message:
+          "Farmer already exists",
       });
     }
 
-    const farmer = await Farmer.create({
-      name: name.trim(),
-      phone: phone.trim(),
-      simNumber: simNumber.trim(),
-      storageId: storageId.trim(),
-      language: language || "en",
-      deviceKey: deviceKey.trim(),
-    });
+    // ================================
+    // CREATE FARMER
+    // ================================
+
+    const farmer =
+      await Farmer.create({
+        name: name.trim(),
+        phone: phone.trim(),
+        simNumber: simNumber.trim(),
+        storageId: storageId.trim(),
+        language: language || "en",
+        deviceKey: deviceKey.trim(),
+
+        location:
+          installationLocation,
+      });
+
+    // ================================
+    // RESPONSE
+    // ================================
 
     res.status(201).json({
       success: true,
-      message: "Farmer registered successfully",
+
+      message:
+        "Farmer registered successfully",
+
       farmer: {
         id: farmer._id,
         name: farmer.name,
@@ -65,10 +147,14 @@ router.post("/register", async (req, res) => {
         simNumber: farmer.simNumber,
         storageId: farmer.storageId,
         language: farmer.language,
+        location: farmer.location,
       },
     });
   } catch (error) {
-    console.error("Registration error:", error.message);
+    console.error(
+      "Registration error:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
@@ -83,39 +169,51 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const {
+      name,
+      phone,
+    } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({
         success: false,
-        message: "Name and phone number are required",
+        message:
+          "Name and phone number are required",
       });
     }
 
-    const farmer = await Farmer.findOne({
-      phone: phone.trim(),
-    });
+    const farmer =
+      await Farmer.findOne({
+        phone: phone.trim(),
+      });
 
     if (!farmer) {
       return res.status(404).json({
         success: false,
-        message: "Farmer not found",
+        message:
+          "Farmer not found",
       });
     }
 
     if (
-      farmer.name.trim().toLowerCase() !==
-      name.trim().toLowerCase()
+      farmer.name
+        .trim()
+        .toLowerCase() !==
+      name
+        .trim()
+        .toLowerCase()
     ) {
       return res.status(401).json({
         success: false,
-        message: "Farmer name does not match",
+        message:
+          "Farmer name does not match",
       });
     }
 
     res.status(200).json({
       success: true,
       message: "Login successful",
+
       farmer: {
         id: farmer._id,
         name: farmer.name,
@@ -123,10 +221,23 @@ router.post("/login", async (req, res) => {
         storageId: farmer.storageId,
         simNumber: farmer.simNumber,
         language: farmer.language,
+
+        // Installation location is returned
+        // so the dashboard can know which
+        // storage location it represents.
+        location:
+          farmer.location || {
+            latitude: null,
+            longitude: null,
+            placeName: "",
+          },
       },
     });
   } catch (error) {
-    console.error("Login error:", error.message);
+    console.error(
+      "Login error:",
+      error.message
+    );
 
     res.status(500).json({
       success: false,
