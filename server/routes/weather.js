@@ -4,6 +4,26 @@ const Farmer = require("../models/Farmers");
 const router = express.Router();
 
 // =====================================================
+// WEATHER CACHE
+// =====================================================
+//
+// Weather does not need to be fetched from Open-Meteo
+// every time a farmer opens the dashboard.
+//
+// Cache is stored per storage unit.
+//
+// Example:
+// CS001 -> cached forecast
+//
+// =====================================================
+
+const weatherCache = new Map();
+
+// Cache successful forecasts for 30 minutes.
+const WEATHER_CACHE_DURATION = 30 * 60 * 1000;
+
+
+// =====================================================
 // WEATHER CODE -> DESCRIPTION
 // =====================================================
 
@@ -49,6 +69,7 @@ function getWeatherDescription(code) {
   return "Unknown";
 }
 
+
 // =====================================================
 // SOLAR AVAILABILITY
 // =====================================================
@@ -58,20 +79,7 @@ function getSolarAvailability(
   cloudCover,
   precipitationProbability
 ) {
-  /*
-    VOOLER prototype decision rules.
-
-    HIGH:
-    Good solar radiation,
-    relatively low cloud cover,
-    and low rain probability.
-
-    MODERATE:
-    Usable solar conditions.
-
-    LOW:
-    Poor solar availability.
-  */
+  // VOOLER prototype decision rules.
 
   if (
     solarRadiation >= 18 &&
@@ -90,6 +98,7 @@ function getSolarAvailability(
 
   return "LOW";
 }
+
 
 // =====================================================
 // VOOLER ENERGY STRATEGY
@@ -122,11 +131,10 @@ function getEnergyStrategy(solarAvailability) {
   };
 }
 
+
 // =====================================================
 // GET WEATHER FOR STORAGE UNIT
 // =====================================================
-//
-// Example:
 //
 // GET /api/weather/CS001
 //
@@ -137,41 +145,71 @@ router.get("/:storageId", async (req, res) => {
     const storageId = req.params.storageId.trim();
 
     // =================================================
-    // FIND STORAGE LOCATION
-    // =================================================
-    //
-    // Multiple farmers may belong to the SAME storage
-    // unit (for example CS001).
-    //
-    // Find a farmer belonging to this storage unit
-    // that actually has installation coordinates.
+    // CHECK CACHE FIRST
     // =================================================
 
-    const farmerWithLocation = await Farmer.findOne({
-      storageId,
+    const cachedWeather = weatherCache.get(storageId);
 
-      "location.latitude": {
-        $ne: null,
-      },
+    if (cachedWeather) {
+      const cacheAge =
+        Date.now() - cachedWeather.timestamp;
 
-      "location.longitude": {
-        $ne: null,
-      },
-    });
+      if (cacheAge < WEATHER_CACHE_DURATION) {
+        console.log(
+          `Weather cache HIT for ${storageId}`
+        );
+
+        return res.status(200).json({
+          ...cachedWeather.data,
+
+          cached: true,
+
+          cacheAgeMinutes: Math.floor(
+            cacheAge / 60000
+          ),
+        });
+      }
+    }
+
+    console.log(
+      `Weather cache MISS for ${storageId}`
+    );
+
 
     // =================================================
-    // CHECK WHETHER STORAGE EXISTS AT ALL
+    // FIND STORAGE INSTALLATION LOCATION
+    // =================================================
+
+    const farmerWithLocation =
+      await Farmer.findOne({
+        storageId,
+
+        "location.latitude": {
+          $ne: null,
+        },
+
+        "location.longitude": {
+          $ne: null,
+        },
+      });
+
+
+    // =================================================
+    // CHECK STORAGE
     // =================================================
 
     if (!farmerWithLocation) {
-      const storageExists = await Farmer.exists({
-        storageId,
-      });
+      const storageExists =
+        await Farmer.exists({
+          storageId,
+        });
 
       if (!storageExists) {
         return res.status(404).json({
           success: false,
-          message: "Storage unit not found",
+
+          message:
+            "Storage unit not found",
         });
       }
 
@@ -182,6 +220,7 @@ router.get("/:storageId", async (req, res) => {
           "Installation location has not been configured for this storage unit",
       });
     }
+
 
     // =================================================
     // READ LOCATION
@@ -198,8 +237,9 @@ router.get("/:storageId", async (req, res) => {
     const placeName =
       farmerWithLocation.location.placeName || "";
 
+
     // =================================================
-    // VALIDATE COORDINATES
+    // VALIDATE LOCATION
     // =================================================
 
     if (
@@ -218,95 +258,126 @@ router.get("/:storageId", async (req, res) => {
       });
     }
 
-    // =================================================
-    // DEBUG LOCATION
-    // =================================================
-
-    console.log("=================================");
-    console.log("VOOLER WEATHER REQUEST");
-    console.log("Storage ID:", storageId);
-    console.log("Place:", placeName);
-    console.log("Latitude:", latitude);
-    console.log("Longitude:", longitude);
-    console.log("=================================");
 
     // =================================================
     // BUILD OPEN-METEO REQUEST
     // =================================================
 
-    const params = new URLSearchParams({
-      latitude: latitude.toString(),
+    const params =
+      new URLSearchParams({
+        latitude:
+          latitude.toString(),
 
-      longitude: longitude.toString(),
+        longitude:
+          longitude.toString(),
 
-      daily: [
-        "weather_code",
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "precipitation_probability_max",
-        "sunshine_duration",
-        "shortwave_radiation_sum",
-        "cloud_cover_mean",
-      ].join(","),
+        daily: [
+          "weather_code",
+          "temperature_2m_max",
+          "temperature_2m_min",
+          "precipitation_probability_max",
+          "sunshine_duration",
+          "shortwave_radiation_sum",
+          "cloud_cover_mean",
+        ].join(","),
 
-      timezone: "auto",
+        timezone: "auto",
 
-      forecast_days: "4",
-    });
+        forecast_days: "4",
+      });
+
 
     const weatherURL =
       `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
 
-    // =================================================
-    // FETCH REAL WEATHER FORECAST
-    // =================================================
 
-    console.log("Calling Open-Meteo...");
-    console.log("Weather URL:", weatherURL);
+    console.log(
+      `Requesting Open-Meteo weather for ${storageId}`
+    );
 
-    const weatherResponse = await fetch(weatherURL);
 
     // =================================================
-    // OPEN-METEO ERROR DEBUGGING
+    // FETCH OPEN-METEO
+    // =================================================
+
+    const weatherResponse =
+      await fetch(weatherURL);
+
+
+    // =================================================
+    // OPEN-METEO FAILURE
     // =================================================
 
     if (!weatherResponse.ok) {
-      const errorBody = await weatherResponse.text();
+      const errorBody =
+        await weatherResponse.text();
 
-      console.error("=================================");
-      console.error("OPEN-METEO REQUEST FAILED");
-      console.error("Status:", weatherResponse.status);
-      console.error("Status Text:", weatherResponse.statusText);
-      console.error("URL:", weatherURL);
-      console.error("Response:", errorBody);
-      console.error("=================================");
+      console.error(
+        "Open-Meteo request failed:",
+        weatherResponse.status,
+        errorBody
+      );
+
+
+      // ===============================================
+      // FALLBACK TO OLD CACHE
+      // ===============================================
+      //
+      // Even if cache is older than 30 minutes,
+      // old weather is better than showing nothing
+      // during temporary API failure.
+      //
+      // ===============================================
+
+      if (cachedWeather) {
+        console.log(
+          `Using stale weather cache for ${storageId}`
+        );
+
+        return res.status(200).json({
+          ...cachedWeather.data,
+
+          cached: true,
+
+          stale: true,
+
+          message:
+            "Using previously stored weather forecast because the weather service is temporarily unavailable.",
+        });
+      }
+
+
+      // No cache exists yet.
+
+      if (weatherResponse.status === 429) {
+        return res.status(503).json({
+          success: false,
+
+          message:
+            "Weather service request limit reached. Forecast will become available when the provider resets its request allowance.",
+        });
+      }
+
 
       return res.status(502).json({
         success: false,
 
         message:
           "Weather forecast temporarily unavailable",
-
-        // TEMPORARY DEBUG FIELD
-        // Remove after weather issue is solved.
-        debug: errorBody,
-
-        openMeteoStatus:
-          weatherResponse.status,
       });
     }
 
+
     // =================================================
-    // PARSE OPEN-METEO RESPONSE
+    // PARSE WEATHER
     // =================================================
 
     const weatherData =
       await weatherResponse.json();
 
-    console.log("Open-Meteo request successful.");
 
     // =================================================
-    // VALIDATE WEATHER RESPONSE
+    // VALIDATE RESPONSE
     // =================================================
 
     if (
@@ -320,6 +391,23 @@ router.get("/:storageId", async (req, res) => {
         weatherData
       );
 
+
+      // Try old cache if available.
+
+      if (cachedWeather) {
+        return res.status(200).json({
+          ...cachedWeather.data,
+
+          cached: true,
+
+          stale: true,
+
+          message:
+            "Using previously stored weather forecast.",
+        });
+      }
+
+
       return res.status(502).json({
         success: false,
 
@@ -328,8 +416,9 @@ router.get("/:storageId", async (req, res) => {
       });
     }
 
+
     // =================================================
-    // BUILD FORECAST ARRAY
+    // BUILD FORECAST
     // =================================================
 
     const forecast =
@@ -340,15 +429,18 @@ router.get("/:storageId", async (req, res) => {
               .weather_code?.[index] ??
             null;
 
+
           const maxTemperature =
             weatherData.daily
               .temperature_2m_max?.[index] ??
             null;
 
+
           const minTemperature =
             weatherData.daily
               .temperature_2m_min?.[index] ??
             null;
+
 
           const precipitationProbability =
             weatherData.daily
@@ -356,10 +448,12 @@ router.get("/:storageId", async (req, res) => {
                 index
               ] ?? 0;
 
+
           const sunshineSeconds =
             weatherData.daily
               .sunshine_duration?.[index] ??
             0;
+
 
           const solarRadiation =
             weatherData.daily
@@ -367,13 +461,15 @@ router.get("/:storageId", async (req, res) => {
                 index
               ] ?? 0;
 
+
           const cloudCover =
             weatherData.daily
               .cloud_cover_mean?.[index] ??
             0;
 
+
           // =============================================
-          // CONVERT SUNSHINE SECONDS -> HOURS
+          // SUNSHINE SECONDS -> HOURS
           // =============================================
 
           const sunshineHours =
@@ -384,8 +480,9 @@ router.get("/:storageId", async (req, res) => {
               ).toFixed(1)
             );
 
+
           // =============================================
-          // DETERMINE SOLAR AVAILABILITY
+          // SOLAR AVAILABILITY
           // =============================================
 
           const solarAvailability =
@@ -395,8 +492,9 @@ router.get("/:storageId", async (req, res) => {
               precipitationProbability
             );
 
+
           // =============================================
-          // DETERMINE VOOLER OPERATING STRATEGY
+          // ENERGY STRATEGY
           // =============================================
 
           const strategy =
@@ -404,9 +502,6 @@ router.get("/:storageId", async (req, res) => {
               solarAvailability
             );
 
-          // =============================================
-          // DAY RESPONSE
-          // =============================================
 
           return {
             date,
@@ -439,11 +534,12 @@ router.get("/:storageId", async (req, res) => {
         }
       );
 
+
     // =================================================
-    // SEND FINAL RESPONSE
+    // FINAL RESPONSE
     // =================================================
 
-    return res.status(200).json({
+    const responseData = {
       success: true,
 
       storageId,
@@ -460,30 +556,81 @@ router.get("/:storageId", async (req, res) => {
         weatherData.timezone,
 
       forecast,
-    });
-  } catch (error) {
+    };
+
+
     // =================================================
-    // UNEXPECTED ERROR
+    // SAVE CACHE
     // =================================================
 
-    console.error("=================================");
-    console.error("WEATHER ROUTE ERROR");
-    console.error(error);
-    console.error("=================================");
+    weatherCache.set(
+      storageId,
+      {
+        timestamp: Date.now(),
+
+        data: responseData,
+      }
+    );
+
+
+    console.log(
+      `Weather cached successfully for ${storageId}`
+    );
+
+
+    // =================================================
+    // RETURN FORECAST
+    // =================================================
+
+    return res.status(200).json({
+      ...responseData,
+
+      cached: false,
+    });
+  } catch (error) {
+    console.error(
+      "Weather route error:",
+      error
+    );
+
+
+    // =================================================
+    // LAST CHANCE CACHE FALLBACK
+    // =================================================
+
+    const storageId =
+      req.params.storageId?.trim();
+
+    const cachedWeather =
+      weatherCache.get(storageId);
+
+
+    if (cachedWeather) {
+      console.log(
+        `Unexpected error - using stale cache for ${storageId}`
+      );
+
+      return res.status(200).json({
+        ...cachedWeather.data,
+
+        cached: true,
+
+        stale: true,
+
+        message:
+          "Using previously stored weather forecast.",
+      });
+    }
+
 
     return res.status(500).json({
       success: false,
 
       message:
         "Unable to retrieve weather forecast",
-
-      // TEMPORARY DEBUGGING
-      debug:
-        error instanceof Error
-          ? error.message
-          : String(error),
     });
   }
 });
+
 
 module.exports = router;
