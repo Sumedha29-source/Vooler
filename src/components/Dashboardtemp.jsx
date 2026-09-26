@@ -125,6 +125,17 @@ function Dashboard({
 
 
   // =====================================================
+  // WEATHER & ENERGY PLANNING
+  // =====================================================
+
+  const [weatherForecast, setWeatherForecast] = useState([]);
+  const [weatherLocation, setWeatherLocation] = useState("");
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [weatherError, setWeatherError] = useState("");
+
+
+
+  // =====================================================
   // FETCH DASHBOARD DATA
   // =====================================================
 
@@ -436,6 +447,60 @@ function Dashboard({
     farmer.storageId,
     language,
   ]);
+
+
+  // =====================================================
+  // FETCH WEATHER FORECAST
+  // =====================================================
+
+  useEffect(() => {
+    const fetchWeatherForecast = async () => {
+      try {
+        setWeatherLoading(true);
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/weather/${farmer.storageId}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Weather forecast temporarily unavailable."
+          );
+        }
+
+        setWeatherForecast(
+          Array.isArray(data.forecast) ? data.forecast : []
+        );
+
+        setWeatherLocation(
+          data.location?.placeName || farmer.storageId
+        );
+
+        setWeatherError("");
+      } catch (err) {
+        console.error("Weather forecast fetch error:", err);
+        setWeatherForecast([]);
+        setWeatherError(
+          "Weather forecast temporarily unavailable."
+        );
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchWeatherForecast();
+
+    // Forecast data does not need the 5-10 second polling used by sensors.
+    // Refresh once every 30 minutes while the dashboard remains open.
+    const interval = setInterval(
+      fetchWeatherForecast,
+      30 * 60 * 1000
+    );
+
+    return () => clearInterval(interval);
+  }, [farmer.storageId]);
 
 
   // =====================================================
@@ -1121,6 +1186,114 @@ function Dashboard({
 
 
   // =====================================================
+  // WEATHER DISPLAY HELPERS
+  // =====================================================
+
+  const getWeatherIcon = (condition = "") => {
+    const value = condition.toLowerCase();
+
+    if (value.includes("thunder")) return "⛈️";
+    if (value.includes("snow")) return "❄️";
+    if (
+      value.includes("rain") ||
+      value.includes("drizzle") ||
+      value.includes("shower")
+    ) {
+      return "🌧️";
+    }
+    if (value.includes("fog")) return "🌫️";
+    if (
+      value.includes("cloud") ||
+      value.includes("overcast")
+    ) {
+      return "☁️";
+    }
+
+    return "☀️";
+  };
+
+
+  const getForecastDayLabel = (dateString, index) => {
+    if (index === 0) return "Today";
+    if (index === 1) return "Tomorrow";
+
+    const date = new Date(`${dateString}T12:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return `Day ${index + 1}`;
+    }
+
+    return date.toLocaleDateString([], {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  };
+
+
+  const getFarmerWeatherAdvice = (availability) => {
+    if (availability === "HIGH") {
+      return {
+        title: "GOOD SOLAR DAY — USE STORAGE NORMALLY",
+        message:
+          "Strong sunlight is expected today. Keep the storage running normally. The system can cool the chambers and store extra cooling for later.",
+        icon: "☀️",
+        background: "#edf9f1",
+        border: "#b9e3c7",
+        color: "#176b3a",
+      };
+    }
+
+    if (availability === "MODERATE") {
+      return {
+        title: "NORMAL USE — NO SPECIAL ACTION NEEDED",
+        message:
+          "Solar energy is moderate today. Keep the storage running normally and let the system manage cooling automatically.",
+        icon: "🟡",
+        background: "#fff9e8",
+        border: "#efd98f",
+        color: "#7a5700",
+      };
+    }
+
+    return {
+      title: "LOW SOLAR DAY — SAVE ENERGY",
+      message:
+        "Less solar energy is expected today. Avoid unnecessary door opening and let the system use stored cooling efficiently.",
+      icon: "🌧️",
+      background: "#f3f5f7",
+      border: "#d0d5dd",
+      color: "#344054",
+    };
+  };
+
+
+  const getSolarBadgeStyle = (availability) => {
+    if (availability === "HIGH") {
+      return {
+        background: "#e9f8ef",
+        color: "#176b3a",
+        border: "1px solid #b8e2c7",
+      };
+    }
+
+    if (availability === "MODERATE") {
+      return {
+        background: "#fff7df",
+        color: "#8a5a00",
+        border: "1px solid #f0d58a",
+      };
+    }
+
+    return {
+      background: "#f2f4f7",
+      color: "#475467",
+      border: "1px solid #d0d5dd",
+    };
+  };
+
+
+  // =====================================================
   // LOADING
   // =====================================================
 
@@ -1626,6 +1799,321 @@ function Dashboard({
             </div>
           </div>
 
+        </section>
+
+
+        {/* =================================================
+            WEATHER & ENERGY PLANNING
+        ================================================= */}
+
+        <section
+          className="chart-card"
+          style={{
+            marginTop: "20px",
+            marginBottom: "20px",
+          }}
+        >
+          <div className="section-heading">
+            <div>
+              <h2>☀️ Weather & Energy Planning</h2>
+              <span>
+                {weatherLocation
+                  ? `Forecast for ${weatherLocation}`
+                  : "Storage-site forecast"}
+              </span>
+            </div>
+
+            <span>4-day solar planning</span>
+          </div>
+
+          {weatherLoading && (
+            <div
+              style={{
+                padding: "20px",
+                textAlign: "center",
+                opacity: 0.7,
+                fontWeight: 600,
+              }}
+            >
+              Loading weather forecast...
+            </div>
+          )}
+
+          {!weatherLoading && weatherError && (
+            <div className="alert-warning">
+              ☁️ {weatherError}
+            </div>
+          )}
+
+          {!weatherLoading &&
+            !weatherError &&
+            weatherForecast.length > 0 && (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(190px, 1fr))",
+                    gap: "12px",
+                    marginTop: "16px",
+                  }}
+                >
+                  {weatherForecast.map((day, index) => (
+                    <div
+                      key={day.date || index}
+                      style={{
+                        border: "1px solid #e2e8e6",
+                        borderRadius: "14px",
+                        padding: "16px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "10px",
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              fontSize: "15px",
+                            }}
+                          >
+                            {getForecastDayLabel(
+                              day.date,
+                              index
+                            )}
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "3px",
+                              fontSize: "12px",
+                              opacity: 0.6,
+                            }}
+                          >
+                            {day.date}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: "30px",
+                            lineHeight: 1,
+                          }}
+                        >
+                          {getWeatherIcon(day.condition)}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "14px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {day.condition || "Forecast"}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          fontSize: "20px",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {day.temperature?.max ?? "--"}°C
+                        <span
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: 600,
+                            opacity: 0.6,
+                          }}
+                        >
+                          {" "}
+                          / {day.temperature?.min ?? "--"}°C
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "12px",
+                          display: "grid",
+                          gap: "6px",
+                          fontSize: "13px",
+                        }}
+                      >
+                        <div>
+                          🌧️ Chance of rain:{" "}
+                          <strong>
+                            {day.precipitationProbability ??
+                              "--"}
+                            %
+                          </strong>
+                        </div>
+
+                        <div>
+                          ☁️ Cloud cover:{" "}
+                          <strong>
+                            {day.cloudCover ?? "--"}%
+                          </strong>
+                        </div>
+
+                        <div>
+                          ☀️ Sunshine:{" "}
+                          <strong>
+                            {day.sunshineHours ?? "--"} hrs
+                          </strong>
+                        </div>
+
+                        <div>
+                          🔆 Solar energy:{" "}
+                          <strong>
+                            {day.solarRadiation ?? "--"} MJ/m²
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "inline-block",
+                          marginTop: "14px",
+                          padding: "6px 10px",
+                          borderRadius: "999px",
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          letterSpacing: "0.3px",
+                          ...getSolarBadgeStyle(
+                            day.solarAvailability
+                          ),
+                        }}
+                      >
+                        {day.solarAvailability || "UNKNOWN"} SUNLIGHT
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {weatherForecast[0]?.solarAvailability && (() => {
+                  const advice = getFarmerWeatherAdvice(
+                    weatherForecast[0].solarAvailability
+                  );
+
+                  return (
+                    <div
+                      style={{
+                        marginTop: "16px",
+                        borderRadius: "14px",
+                        padding: "18px",
+                        background: advice.background,
+                        border: `1px solid ${advice.border}`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 800,
+                          letterSpacing: "0.5px",
+                          color: advice.color,
+                        }}
+                      >
+                        👨‍🌾 WHAT SHOULD I DO TODAY?
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "7px",
+                          fontSize: "19px",
+                          fontWeight: 800,
+                          color: advice.color,
+                        }}
+                      >
+                        {advice.icon} {advice.title}
+                      </div>
+
+                      <p
+                        style={{
+                          margin: "8px 0 0",
+                          lineHeight: 1.55,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {advice.message}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {weatherForecast[0]?.strategy && (
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      borderRadius: "14px",
+                      padding: "18px",
+                      background: "#eef8f6",
+                      border: "1px solid #c8e5df",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        letterSpacing: "0.5px",
+                        color: "#0f6e66",
+                      }}
+                    >
+                      TODAY'S RECOMMENDED ENERGY STRATEGY
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: "7px",
+                        fontSize: "18px",
+                        fontWeight: 800,
+                      }}
+                    >
+                      ⚡ {weatherForecast[0].strategy.mode}
+                    </div>
+
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {
+                        weatherForecast[0].strategy
+                          .recommendation
+                      }
+                    </p>
+
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        fontSize: "12px",
+                        opacity: 0.65,
+                      }}
+                    >
+                      Planning guidance is generated from the
+                      storage-site weather forecast and VOOLER's
+                      prototype energy-management rules.
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+          {!weatherLoading &&
+            !weatherError &&
+            weatherForecast.length === 0 && (
+              <div className="alert-warning">
+                ☁️ Weather forecast temporarily unavailable.
+              </div>
+            )}
         </section>
 
 
