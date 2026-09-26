@@ -40,6 +40,34 @@ const farmerSchema = new mongoose.Schema(
     },
 
     // =====================================================
+    // 4-DIGIT DOOR ACCESS PIN
+    //
+    // select: false means normal Farmer queries will NOT
+    // return the PIN to the frontend.
+    //
+    // Existing farmers can temporarily have null until
+    // an admin assigns them a PIN.
+    // =====================================================
+
+    devicePin: {
+      type: String,
+      default: null,
+      select: false,
+
+      validate: {
+        validator: function (value) {
+          return (
+            value === null ||
+            /^\d{4}$/.test(value)
+          );
+        },
+
+        message:
+          "Device PIN must contain exactly 4 digits",
+      },
+    },
+
+    // =====================================================
     // COLD STORAGE INSTALLATION LOCATION
     // =====================================================
 

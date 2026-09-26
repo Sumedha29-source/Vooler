@@ -30,6 +30,7 @@ function Dashboard({
   // SENSOR DATA
   // =====================================================
 
+  const [showCoolingBackupInfo, setShowCoolingBackupInfo] = useState(false);
   const [
     chamber1Temperature,
     setChamber1Temperature,
@@ -1231,43 +1232,6 @@ function Dashboard({
   };
 
 
-  const getFarmerWeatherAdvice = (availability) => {
-    if (availability === "HIGH") {
-      return {
-        title: "GOOD SOLAR DAY — USE STORAGE NORMALLY",
-        message:
-          "Strong sunlight is expected today. Keep the storage running normally. The system can cool the chambers and store extra cooling for later.",
-        icon: "☀️",
-        background: "#edf9f1",
-        border: "#b9e3c7",
-        color: "#176b3a",
-      };
-    }
-
-    if (availability === "MODERATE") {
-      return {
-        title: "NORMAL USE — NO SPECIAL ACTION NEEDED",
-        message:
-          "Solar energy is moderate today. Keep the storage running normally and let the system manage cooling automatically.",
-        icon: "🟡",
-        background: "#fff9e8",
-        border: "#efd98f",
-        color: "#7a5700",
-      };
-    }
-
-    return {
-      title: "LOW SOLAR DAY — SAVE ENERGY",
-      message:
-        "Less solar energy is expected today. Avoid unnecessary door opening and let the system use stored cooling efficiently.",
-      icon: "🌧️",
-      background: "#f3f5f7",
-      border: "#d0d5dd",
-      color: "#344054",
-    };
-  };
-
-
   const getSolarBadgeStyle = (availability) => {
     if (availability === "HIGH") {
       return {
@@ -1998,56 +1962,6 @@ function Dashboard({
                   ))}
                 </div>
 
-                {weatherForecast[0]?.solarAvailability && (() => {
-                  const advice = getFarmerWeatherAdvice(
-                    weatherForecast[0].solarAvailability
-                  );
-
-                  return (
-                    <div
-                      style={{
-                        marginTop: "16px",
-                        borderRadius: "14px",
-                        padding: "18px",
-                        background: advice.background,
-                        border: `1px solid ${advice.border}`,
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 800,
-                          letterSpacing: "0.5px",
-                          color: advice.color,
-                        }}
-                      >
-                        👨‍🌾 WHAT SHOULD I DO TODAY?
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: "7px",
-                          fontSize: "19px",
-                          fontWeight: 800,
-                          color: advice.color,
-                        }}
-                      >
-                        {advice.icon} {advice.title}
-                      </div>
-
-                      <p
-                        style={{
-                          margin: "8px 0 0",
-                          lineHeight: 1.55,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {advice.message}
-                      </p>
-                    </div>
-                  );
-                })()}
-
                 {weatherForecast[0]?.strategy && (
                   <div
                     style={{
@@ -2066,7 +1980,7 @@ function Dashboard({
                         color: "#0f6e66",
                       }}
                     >
-                      TODAY'S RECOMMENDED ENERGY STRATEGY
+                      TODAY'S ENERGY PLAN
                     </div>
 
                     <div
@@ -2085,10 +1999,11 @@ function Dashboard({
                         lineHeight: 1.55,
                       }}
                     >
-                      {
-                        weatherForecast[0].strategy
-                          .recommendation
-                      }
+                      {weatherForecast[0].solarAvailability === "HIGH"
+                        ? "VOOLER will prioritize chamber cooling and use available surplus solar energy to charge the PCM thermal storage."
+                        : weatherForecast[0].solarAvailability === "MODERATE"
+                        ? "VOOLER will maintain chamber cooling while balancing available solar energy, battery usage, and PCM charging."
+                        : "VOOLER will conserve battery energy and rely more on stored PCM cooling to reduce compressor demand where possible."}
                     </p>
 
                     <div
@@ -2115,6 +2030,152 @@ function Dashboard({
               </div>
             )}
         </section>
+
+
+        {/* =================================================
+            ESTIMATED COOLING BACKUP
+        ================================================= */}
+        <section
+          style={{
+            background: "#ffffff",
+            border: "1px solid #dfe8e6",
+            borderRadius: "16px",
+            padding: "18px 20px",
+            marginTop: "18px",
+            marginBottom: "18px",
+            boxShadow: "0 4px 14px rgba(0, 0, 0, 0.04)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "8px",
+            }}
+          >
+            <h2 style={{ margin: 0 }}>❄️ Estimated Cooling Backup</h2>
+
+            <button
+              type="button"
+              aria-label="About estimated cooling backup"
+              onClick={() => setShowCoolingBackupInfo(true)}
+              style={{
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                border: "1px solid #9aa8a5",
+                background: "#ffffff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "13px",
+                fontWeight: 800,
+                cursor: "pointer",
+                padding: 0,
+                color: "inherit",
+              }}
+            >
+              ?
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: "8px",
+              marginTop: "12px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "34px",
+                fontWeight: 800,
+                letterSpacing: "1px",
+              }}
+            >
+              ----
+            </span>
+            <span style={{ fontSize: "18px", fontWeight: 700 }}>hrs</span>
+          </div>
+
+          <div
+            style={{
+              marginTop: "8px",
+              fontSize: "14px",
+              opacity: 0.7,
+            }}
+          >
+            Estimate available when device data is received
+          </div>
+        </section>
+
+
+        {showCoolingBackupInfo && (
+          <div
+            onClick={() => setShowCoolingBackupInfo(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 9999,
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="cooling-backup-info-title"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: "460px",
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxShadow: "0 18px 50px rgba(0, 0, 0, 0.2)",
+                position: "relative",
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setShowCoolingBackupInfo(false)}
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "14px",
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+
+              <h3 id="cooling-backup-info-title" style={{ margin: "0 32px 12px 0" }}>
+                Estimated Cooling Backup
+              </h3>
+
+              <p style={{ margin: "0 0 12px", lineHeight: 1.55 }}>
+                Shows the estimated time your Vooler can keep the stored produce
+                cool without sunlight, based on battery status, stored cooling
+                capacity, and data from previous testing cycles.
+              </p>
+
+              <p style={{ margin: 0, lineHeight: 1.55, opacity: 0.75 }}>
+                <strong>Note:</strong> Actual backup time may vary with
+                environmental and operating conditions.
+              </p>
+            </div>
+          </div>
+        )}
 
 
         <div className="alerts-emergency-grid">

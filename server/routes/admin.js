@@ -64,11 +64,13 @@ router.post(
   verifyAdmin,
   async (req, res) => {
     try {
+
       const {
         name,
         phone,
         simNumber,
         language,
+        devicePin,
       } = req.body;
 
 
@@ -79,7 +81,8 @@ router.post(
       if (
         !name ||
         !phone ||
-        !simNumber
+        !simNumber ||
+        !devicePin
       ) {
         return res
           .status(400)
@@ -87,7 +90,7 @@ router.post(
             success: false,
 
             message:
-              "Name, phone number and SIM number are required",
+              "Name, phone number, SIM number and 4-digit device PIN are required",
           });
       }
 
@@ -97,16 +100,19 @@ router.post(
       // =================================================
 
       const cleanName =
-        name.trim();
+        String(name).trim();
 
       const cleanPhone =
-        phone.trim();
+        String(phone).trim();
 
       const cleanSimNumber =
-        simNumber.trim();
+        String(simNumber).trim();
 
       const cleanLanguage =
         language || "en";
+
+      const cleanDevicePin =
+        String(devicePin).trim();
 
 
       // =================================================
@@ -145,6 +151,26 @@ router.post(
 
             message:
               "SIM number must contain exactly 10 digits",
+          });
+      }
+
+
+      // =================================================
+      // DEVICE PIN VALIDATION
+      // =================================================
+
+      if (
+        !/^\d{4}$/.test(
+          cleanDevicePin
+        )
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Device PIN must contain exactly 4 digits",
           });
       }
 
@@ -201,24 +227,24 @@ router.post(
 
       // =================================================
       // CREATE FARMER
-      //
-      // Farmers.js automatically assigns:
-      //
-      // storageId = CS001
-      // deviceKey = vooler-device-001
       // =================================================
 
       const farmer =
         new Farmer({
-          name: cleanName,
+          name:
+            cleanName,
 
-          phone: cleanPhone,
+          phone:
+            cleanPhone,
 
           simNumber:
             cleanSimNumber,
 
           language:
             cleanLanguage,
+
+          devicePin:
+            cleanDevicePin,
         });
 
 
@@ -236,10 +262,12 @@ router.post(
       // CREATE WELCOME SMS COMMAND
       // =================================================
 
-      let smsQueued = false;
+      let smsQueued =
+        false;
 
 
       try {
+
         const welcomeMessage =
           `Welcome to VOOLER! ` +
           `Your registration is successful. ` +
@@ -262,27 +290,25 @@ router.post(
         });
 
 
-        smsQueued = true;
+        smsQueued =
+          true;
 
-
-        console.log(
-          "Welcome SMS queued for:",
-          farmer.phone
-        );
       }
       catch (smsError) {
-        console.error(
-          "Unable to queue welcome SMS:"
-        );
 
         console.error(
+          "Unable to queue welcome SMS:",
           smsError.message
         );
+
       }
 
 
       // =================================================
-      // SUCCESS RESPONSE
+      // SUCCESS
+      //
+      // IMPORTANT:
+      // We do NOT return devicePin.
       // =================================================
 
       return res
@@ -313,25 +339,22 @@ router.post(
             storageId:
               farmer.storageId,
 
-            deviceKey:
-              farmer.deviceKey,
-
             language:
               farmer.language,
+
+            hasDevicePin:
+              true,
           },
         });
+
     }
     catch (error) {
+
       console.error(
-        "Farmer registration error:"
+        "Farmer registration error:",
+        error
       );
 
-      console.error(error);
-
-
-      // =================================================
-      // DUPLICATE KEY ERROR
-      // =================================================
 
       if (
         error.code === 11000
@@ -347,10 +370,6 @@ router.post(
       }
 
 
-      // =================================================
-      // GENERAL SERVER ERROR
-      // =================================================
-
       return res
         .status(500)
         .json({
@@ -359,6 +378,7 @@ router.post(
           message:
             "Server error while registering farmer",
         });
+
     }
   }
 );
@@ -366,19 +386,25 @@ router.post(
 
 // =====================================================
 // GET ALL FARMERS
+//
+// devicePin will NOT be returned because the model
+// contains select: false.
 // =====================================================
 
 router.get(
   "/farmers",
   verifyAdmin,
   async (req, res) => {
+
     try {
+
       const farmers =
         await Farmer
           .find()
           .sort({
             createdAt: -1,
-          });
+          })
+          .lean();
 
 
       return res.json({
@@ -386,8 +412,10 @@ router.get(
 
         farmers,
       });
+
     }
     catch (error) {
+
       console.error(
         "Fetch farmers error:",
         error
@@ -402,6 +430,137 @@ router.get(
           message:
             "Unable to fetch farmers",
         });
+
+    }
+  }
+);
+
+
+// =====================================================
+// ASSIGN / CHANGE DEVICE PIN
+//
+// Admin only.
+//
+// This is useful for:
+// - Existing farmers
+// - Resetting a PIN
+// - Changing a PIN later
+//
+// PIN is accepted but NEVER returned.
+// =====================================================
+
+router.patch(
+  "/farmers/:farmerId/device-pin",
+  verifyAdmin,
+  async (req, res) => {
+
+    try {
+
+      const cleanPin =
+        String(
+          req.body.devicePin || ""
+        ).trim();
+
+
+      // =================================================
+      // VALIDATE PIN
+      // =================================================
+
+      if (
+        !/^\d{4}$/.test(
+          cleanPin
+        )
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Device PIN must contain exactly 4 digits",
+          });
+      }
+
+
+      // =================================================
+      // UPDATE FARMER
+      // =================================================
+
+      const farmer =
+        await Farmer.findByIdAndUpdate(
+          req.params.farmerId,
+
+          {
+            $set: {
+              devicePin:
+                cleanPin,
+            },
+          },
+
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
+
+
+      if (!farmer) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+
+            message:
+              "Farmer not found",
+          });
+      }
+
+
+      // =================================================
+      // SUCCESS
+      //
+      // Do NOT return PIN.
+      // =================================================
+
+      return res.json({
+        success: true,
+
+        message:
+          "Device PIN updated successfully",
+
+        farmer: {
+          id:
+            farmer._id,
+
+          name:
+            farmer.name,
+
+          storageId:
+            farmer.storageId,
+
+          hasDevicePin:
+            true,
+        },
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Device PIN update error:",
+        error
+      );
+
+
+      return res
+        .status(500)
+        .json({
+          success: false,
+
+          message:
+            "Unable to update device PIN",
+        });
+
     }
   }
 );

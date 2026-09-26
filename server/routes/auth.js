@@ -3,6 +3,7 @@ const Farmer = require("../models/Farmers");
 
 const router = express.Router();
 
+
 // ================================
 // REGISTER FARMER
 // ================================
@@ -18,6 +19,7 @@ router.post("/register", async (req, res) => {
       deviceKey,
       location,
     } = req.body;
+
 
     // ================================
     // REQUIRED FIELD CHECK
@@ -37,6 +39,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
+
     // ================================
     // LOCATION VALIDATION
     // ================================
@@ -47,6 +50,7 @@ router.post("/register", async (req, res) => {
       placeName: "",
     };
 
+
     if (location) {
       const latitude = Number(
         location.latitude
@@ -55,6 +59,7 @@ router.post("/register", async (req, res) => {
       const longitude = Number(
         location.longitude
       );
+
 
       if (
         !Number.isFinite(latitude) ||
@@ -68,6 +73,7 @@ router.post("/register", async (req, res) => {
         });
       }
 
+
       if (
         !Number.isFinite(longitude) ||
         longitude < -180 ||
@@ -80,6 +86,7 @@ router.post("/register", async (req, res) => {
         });
       }
 
+
       installationLocation = {
         latitude,
         longitude,
@@ -91,6 +98,7 @@ router.post("/register", async (req, res) => {
             : "",
       };
     }
+
 
     // ================================
     // CHECK EXISTING FARMER / STORAGE
@@ -105,6 +113,7 @@ router.post("/register", async (req, res) => {
         ],
       });
 
+
     if (existingFarmer) {
       return res.status(409).json({
         success: false,
@@ -112,6 +121,7 @@ router.post("/register", async (req, res) => {
           "Farmer already exists",
       });
     }
+
 
     // ================================
     // CREATE FARMER
@@ -129,6 +139,7 @@ router.post("/register", async (req, res) => {
         location:
           installationLocation,
       });
+
 
     // ================================
     // RESPONSE
@@ -150,6 +161,7 @@ router.post("/register", async (req, res) => {
         location: farmer.location,
       },
     });
+
   } catch (error) {
     console.error(
       "Registration error:",
@@ -163,6 +175,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
+
 // ================================
 // LOGIN FARMER
 // ================================
@@ -174,6 +187,7 @@ router.post("/login", async (req, res) => {
       phone,
     } = req.body;
 
+
     if (!name || !phone) {
       return res.status(400).json({
         success: false,
@@ -182,10 +196,12 @@ router.post("/login", async (req, res) => {
       });
     }
 
+
     const farmer =
       await Farmer.findOne({
         phone: phone.trim(),
       });
+
 
     if (!farmer) {
       return res.status(404).json({
@@ -194,6 +210,7 @@ router.post("/login", async (req, res) => {
           "Farmer not found",
       });
     }
+
 
     if (
       farmer.name
@@ -209,6 +226,7 @@ router.post("/login", async (req, res) => {
           "Farmer name does not match",
       });
     }
+
 
     res.status(200).json({
       success: true,
@@ -233,6 +251,7 @@ router.post("/login", async (req, res) => {
           },
       },
     });
+
   } catch (error) {
     console.error(
       "Login error:",
@@ -245,5 +264,93 @@ router.post("/login", async (req, res) => {
     });
   }
 });
+
+
+// ================================
+// GET FARMER DEVICE PIN
+// ================================
+
+router.post("/device-pin", async (req, res) => {
+  try {
+    const {
+      farmerId,
+      phone,
+    } = req.body;
+
+
+    // ================================
+    // REQUIRED FIELD CHECK
+    // ================================
+
+    if (!farmerId || !phone) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Farmer ID and phone number are required",
+      });
+    }
+
+
+    // ================================
+    // FIND FARMER
+    // ================================
+    //
+    // devicePin has select: false in
+    // Farmers.js, so we explicitly
+    // request it only for this route.
+    // ================================
+
+    const farmer =
+      await Farmer.findOne({
+        _id: farmerId,
+        phone: phone.trim(),
+      }).select("+devicePin");
+
+
+    if (!farmer) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Farmer not found",
+      });
+    }
+
+
+    // ================================
+    // CHECK PIN EXISTS
+    // ================================
+
+    if (!farmer.devicePin) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No device PIN has been assigned yet",
+      });
+    }
+
+
+    // ================================
+    // RETURN DEVICE PIN
+    // ================================
+
+    return res.status(200).json({
+      success: true,
+      devicePin: farmer.devicePin,
+    });
+
+  } catch (error) {
+    console.error(
+      "Device PIN fetch error:",
+      error.message
+    );
+
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
 
 module.exports = router;
