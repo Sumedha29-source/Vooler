@@ -52,11 +52,11 @@ function getSolarAvailability(
   precipitationProbability
 ) {
   /*
-    This is a VOOLER planning estimate.
+    Prototype VOOLER decision rules.
 
-    We primarily use forecast solar radiation.
+    Solar radiation is the main indicator.
     Cloud cover and rain probability provide
-    additional context.
+    additional forecast context.
   */
 
   if (
@@ -82,20 +82,25 @@ function getSolarAvailability(
 // VOOLER ENERGY STRATEGY
 // =====================================================
 
-function getEnergyStrategy(solarAvailability) {
-
+function getEnergyStrategy(
+  solarAvailability
+) {
   if (solarAvailability === "HIGH") {
     return {
-      mode: "ACTIVE COOLING + PCM CHARGING",
+      mode:
+        "ACTIVE COOLING + PCM CHARGING",
 
       recommendation:
         "Strong solar availability expected. Prioritize active chamber cooling and use surplus solar energy to freeze or charge the PCM thermal storage.",
     };
   }
 
-  if (solarAvailability === "MODERATE") {
+  if (
+    solarAvailability === "MODERATE"
+  ) {
     return {
-      mode: "BALANCED OPERATION",
+      mode:
+        "BALANCED OPERATION",
 
       recommendation:
         "Moderate solar availability expected. Maintain chamber cooling while balancing battery use and PCM charging according to available solar energy.",
@@ -103,7 +108,8 @@ function getEnergyStrategy(solarAvailability) {
   }
 
   return {
-    mode: "PCM SUPPORT + ENERGY CONSERVATION",
+    mode:
+      "PCM SUPPORT + ENERGY CONSERVATION",
 
     recommendation:
       "Low solar availability expected. Conserve battery energy and rely more on stored PCM cooling to reduce compressor demand where possible.",
@@ -112,7 +118,7 @@ function getEnergyStrategy(solarAvailability) {
 
 
 // =====================================================
-// GET WEATHER FOR A STORAGE UNIT
+// GET WEATHER FOR STORAGE UNIT
 // =====================================================
 //
 // Example:
@@ -120,272 +126,332 @@ function getEnergyStrategy(solarAvailability) {
 //
 // =====================================================
 
-router.get("/:storageId", async (req, res) => {
+router.get(
+  "/:storageId",
+  async (req, res) => {
+    try {
+      const storageId =
+        req.params.storageId.trim();
 
-  try {
+      // ===============================================
+      // FIND FARMER / STORAGE
+      // ===============================================
 
-    const storageId =
-      req.params.storageId.trim();
+      const farmer =
+        await Farmer.findOne({
+          storageId,
+        });
 
-    // -------------------------------------------------
-    // FIND STORAGE / FARMER
-    // -------------------------------------------------
-
-    const farmer = await Farmer.findOne({
-      storageId,
-    });
-
-    if (!farmer) {
-      return res.status(404).json({
-        success: false,
-        message: "Storage unit not found",
-      });
-    }
-
-
-    // -------------------------------------------------
-    // CHECK INSTALLATION LOCATION
-    // -------------------------------------------------
-
-    if (
-      !farmer.location ||
-      !Number.isFinite(
-        farmer.location.latitude
-      ) ||
-      !Number.isFinite(
-        farmer.location.longitude
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-
-        message:
-          "Installation location has not been configured for this storage unit",
-      });
-    }
+      if (!farmer) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Storage unit not found",
+        });
+      }
 
 
-    const latitude =
-      farmer.location.latitude;
+      // ===============================================
+      // READ INSTALLATION LOCATION
+      // ===============================================
 
-    const longitude =
-      farmer.location.longitude;
+      const rawLatitude =
+        farmer.location?.latitude;
 
-
-    // -------------------------------------------------
-    // OPEN-METEO REQUEST
-    // -------------------------------------------------
-
-    const params =
-      new URLSearchParams({
-        latitude:
-          latitude.toString(),
-
-        longitude:
-          longitude.toString(),
-
-        daily: [
-          "weather_code",
-          "temperature_2m_max",
-          "temperature_2m_min",
-          "precipitation_probability_max",
-          "sunshine_duration",
-          "shortwave_radiation_sum",
-          "cloud_cover_mean",
-        ].join(","),
-
-        timezone: "auto",
-
-        forecast_days: "4",
-      });
+      const rawLongitude =
+        farmer.location?.longitude;
 
 
-    const weatherURL =
-      `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+      // Explicitly convert values to JS numbers
+
+      const latitude =
+        Number(rawLatitude);
+
+      const longitude =
+        Number(rawLongitude);
 
 
-    const weatherResponse =
-      await fetch(weatherURL);
+      // ===============================================
+      // DEBUG LOG
+      // ===============================================
 
-
-    if (!weatherResponse.ok) {
-
-      console.error(
-        "Open-Meteo error:",
-        weatherResponse.status
+      console.log(
+        `Weather request for ${storageId}`
       );
 
-      return res.status(502).json({
-        success: false,
+      console.log(
+        "Stored location:",
+        farmer.location
+      );
 
-        message:
-          "Weather forecast temporarily unavailable",
-      });
-    }
+      console.log(
+        "Latitude:",
+        latitude
+      );
 
-
-    const weatherData =
-      await weatherResponse.json();
-
-
-    // -------------------------------------------------
-    // VALIDATE RESPONSE
-    // -------------------------------------------------
-
-    if (
-      !weatherData.daily ||
-      !weatherData.daily.time
-    ) {
-      return res.status(502).json({
-        success: false,
-
-        message:
-          "Invalid weather forecast received",
-      });
-    }
+      console.log(
+        "Longitude:",
+        longitude
+      );
 
 
-    // -------------------------------------------------
-    // BUILD 4-DAY FORECAST
-    // -------------------------------------------------
+      // ===============================================
+      // VALIDATE LOCATION
+      // ===============================================
 
-    const forecast =
-      weatherData.daily.time.map(
-        (date, index) => {
+      if (
+        rawLatitude === null ||
+        rawLatitude === undefined ||
+        rawLongitude === null ||
+        rawLongitude === undefined ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        return res.status(400).json({
+          success: false,
 
-          const weatherCode =
-            weatherData.daily
-              .weather_code[index];
-
-          const maxTemperature =
-            weatherData.daily
-              .temperature_2m_max[index];
-
-          const minTemperature =
-            weatherData.daily
-              .temperature_2m_min[index];
-
-          const precipitationProbability =
-            weatherData.daily
-              .precipitation_probability_max[
-                index
-              ] ?? 0;
-
-          const sunshineSeconds =
-            weatherData.daily
-              .sunshine_duration[index] ?? 0;
-
-          const solarRadiation =
-            weatherData.daily
-              .shortwave_radiation_sum[
-                index
-              ] ?? 0;
-
-          const cloudCover =
-            weatherData.daily
-              .cloud_cover_mean[index] ?? 0;
+          message:
+            "Installation location has not been configured for this storage unit",
+        });
+      }
 
 
-          // Convert seconds → hours
+      // ===============================================
+      // BUILD OPEN-METEO REQUEST
+      // ===============================================
 
-          const sunshineHours =
-            Number(
-              (
-                sunshineSeconds / 3600
-              ).toFixed(1)
-            );
+      const params =
+        new URLSearchParams({
+          latitude:
+            latitude.toString(),
+
+          longitude:
+            longitude.toString(),
+
+          daily: [
+            "weather_code",
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "precipitation_probability_max",
+            "sunshine_duration",
+            "shortwave_radiation_sum",
+            "cloud_cover_mean",
+          ].join(","),
+
+          timezone: "auto",
+
+          forecast_days: "4",
+        });
 
 
-          // Determine expected solar availability
+      const weatherURL =
+        `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
 
-          const solarAvailability =
-            getSolarAvailability(
-              solarRadiation,
+
+      // ===============================================
+      // FETCH OPEN-METEO
+      // ===============================================
+
+      const weatherResponse =
+        await fetch(weatherURL);
+
+
+      if (!weatherResponse.ok) {
+        console.error(
+          "Open-Meteo error:",
+          weatherResponse.status
+        );
+
+        return res.status(502).json({
+          success: false,
+
+          message:
+            "Weather forecast temporarily unavailable",
+        });
+      }
+
+
+      const weatherData =
+        await weatherResponse.json();
+
+
+      // ===============================================
+      // VALIDATE WEATHER RESPONSE
+      // ===============================================
+
+      if (
+        !weatherData.daily ||
+        !Array.isArray(
+          weatherData.daily.time
+        )
+      ) {
+        return res.status(502).json({
+          success: false,
+
+          message:
+            "Invalid weather forecast received",
+        });
+      }
+
+
+      // ===============================================
+      // BUILD 4-DAY FORECAST
+      // ===============================================
+
+      const forecast =
+        weatherData.daily.time.map(
+          (date, index) => {
+            const weatherCode =
+              weatherData.daily
+                .weather_code?.[
+                  index
+                ] ?? null;
+
+            const maxTemperature =
+              weatherData.daily
+                .temperature_2m_max?.[
+                  index
+                ] ?? null;
+
+            const minTemperature =
+              weatherData.daily
+                .temperature_2m_min?.[
+                  index
+                ] ?? null;
+
+            const precipitationProbability =
+              weatherData.daily
+                .precipitation_probability_max?.[
+                  index
+                ] ?? 0;
+
+            const sunshineSeconds =
+              weatherData.daily
+                .sunshine_duration?.[
+                  index
+                ] ?? 0;
+
+            const solarRadiation =
+              weatherData.daily
+                .shortwave_radiation_sum?.[
+                  index
+                ] ?? 0;
+
+            const cloudCover =
+              weatherData.daily
+                .cloud_cover_mean?.[
+                  index
+                ] ?? 0;
+
+
+            // Seconds → hours
+
+            const sunshineHours =
+              Number(
+                (
+                  sunshineSeconds /
+                  3600
+                ).toFixed(1)
+              );
+
+
+            // Solar forecast category
+
+            const solarAvailability =
+              getSolarAvailability(
+                solarRadiation,
+                cloudCover,
+                precipitationProbability
+              );
+
+
+            // VOOLER operating strategy
+
+            const strategy =
+              getEnergyStrategy(
+                solarAvailability
+              );
+
+
+            return {
+              date,
+
+              weatherCode,
+
+              condition:
+                getWeatherDescription(
+                  weatherCode
+                ),
+
+              temperature: {
+                max:
+                  maxTemperature,
+
+                min:
+                  minTemperature,
+              },
+
+              precipitationProbability,
+
               cloudCover,
-              precipitationProbability
-            );
+
+              sunshineHours,
+
+              solarRadiation,
+
+              solarAvailability,
+
+              strategy,
+            };
+          }
+        );
 
 
-          // Generate VOOLER recommendation
+      // ===============================================
+      // SEND RESPONSE
+      // ===============================================
 
-          const strategy =
-            getEnergyStrategy(
-              solarAvailability
-            );
+      return res.status(200).json({
+        success: true,
 
+        storageId:
+          farmer.storageId,
 
-          return {
-            date,
+        location: {
+          latitude,
+          longitude,
 
-            weatherCode,
+          placeName:
+            farmer.location
+              ?.placeName || "",
+        },
 
-            condition:
-              getWeatherDescription(
-                weatherCode
-              ),
+        timezone:
+          weatherData.timezone,
 
-            temperature: {
-              max: maxTemperature,
-              min: minTemperature,
-            },
+        forecast,
+      });
+    }
 
-            precipitationProbability,
-
-            cloudCover,
-
-            sunshineHours,
-
-            solarRadiation,
-
-            solarAvailability,
-
-            strategy,
-          };
-        }
+    catch (error) {
+      console.error(
+        "Weather route error:",
+        error
       );
 
+      return res.status(500).json({
+        success: false,
 
-    // -------------------------------------------------
-    // RESPONSE
-    // -------------------------------------------------
-
-    res.status(200).json({
-
-      success: true,
-
-      storageId:
-        farmer.storageId,
-
-      location: {
-        latitude,
-        longitude,
-
-        placeName:
-          farmer.location.placeName ||
-          "",
-      },
-
-      timezone:
-        weatherData.timezone,
-
-      forecast,
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Weather route error:",
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-
-      message:
-        "Unable to retrieve weather forecast",
-    });
+        message:
+          "Unable to retrieve weather forecast",
+      });
+    }
   }
-});
+);
 
 
 module.exports = router;
