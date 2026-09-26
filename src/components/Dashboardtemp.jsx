@@ -27,6 +27,58 @@ function Dashboard({
 
 
   // =====================================================
+  // DOOR ACCESS PIN
+  // =====================================================
+
+  const [devicePin, setDevicePin] = useState("");
+  const [showDevicePin, setShowDevicePin] = useState(false);
+  const [devicePinLoading, setDevicePinLoading] = useState(false);
+  const [devicePinError, setDevicePinError] = useState("");
+
+  const handleDevicePinToggle = async () => {
+    if (showDevicePin) {
+      setShowDevicePin(false);
+      return;
+    }
+
+    if (devicePin) {
+      setShowDevicePin(true);
+      return;
+    }
+
+    try {
+      setDevicePinLoading(true);
+      setDevicePinError("");
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/device-pin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          farmerId: farmer.id,
+          phone: farmer.phone,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to load device PIN");
+      }
+
+      setDevicePin(data.devicePin || "");
+      setShowDevicePin(true);
+    } catch (err) {
+      console.error("Device PIN fetch error:", err);
+      setDevicePinError(err.message || "Unable to load device PIN");
+    } finally {
+      setDevicePinLoading(false);
+    }
+  };
+
+
+  // =====================================================
   // SENSOR DATA
   // =====================================================
 
@@ -1438,6 +1490,113 @@ function Dashboard({
 
           </div>
 
+        </section>
+
+
+        {/* =================================================
+            DOOR ACCESS PIN
+        ================================================= */}
+
+        <section
+          style={{
+            background: "#ffffff",
+            border: "1px solid #dfe8e6",
+            borderRadius: "16px",
+            padding: "18px 20px",
+            marginTop: "18px",
+            marginBottom: "18px",
+            boxShadow: "0 4px 14px rgba(0, 0, 0, 0.04)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0, fontSize: "18px" }}>
+                🔐 Door Access PIN
+              </h2>
+
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: "13px",
+                  opacity: 0.68,
+                }}
+              >
+                Use this PIN on the VOOLER door keypad.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <div
+                aria-label={showDevicePin ? "Device PIN visible" : "Device PIN hidden"}
+                style={{
+                  minWidth: "100px",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "#f6f9f8",
+                  border: "1px solid #dfe8e6",
+                  textAlign: "center",
+                  fontSize: "20px",
+                  fontWeight: 800,
+                  letterSpacing: "6px",
+                }}
+              >
+                {devicePinLoading
+                  ? "...."
+                  : showDevicePin && devicePin
+                  ? devicePin
+                  : "••••"}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDevicePinToggle}
+                disabled={devicePinLoading}
+                aria-label={showDevicePin ? "Hide door access PIN" : "Show door access PIN"}
+                title={showDevicePin ? "Hide PIN" : "Show PIN"}
+                style={{
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "10px",
+                  border: "1px solid #d6e2df",
+                  background: "#ffffff",
+                  cursor: devicePinLoading ? "wait" : "pointer",
+                  fontSize: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {showDevicePin ? "🙈" : "👁️"}
+              </button>
+            </div>
+          </div>
+
+          {devicePinError && (
+            <div
+              style={{
+                marginTop: "12px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#b42318",
+              }}
+            >
+              ⚠️ {devicePinError}
+            </div>
+          )}
         </section>
 
 
