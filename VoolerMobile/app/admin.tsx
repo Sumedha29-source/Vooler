@@ -1,1025 +1,1637 @@
-import {
-  useState,
-} from "react";
-
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   View,
 } from "react-native";
+import { router } from "expo-router";
 
-import {
-  router,
-} from "expo-router";
+import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
-import {
-  Input,
-} from "@/components/ui/input";
-
-import {
-  Text,
-} from "@/components/ui/text";
-
+const API_BASE_URL = "https://vooler.onrender.com";
 
 // =====================================================
-// BACKEND
+// TYPES
 // =====================================================
 
-const API_BASE_URL =
-  "https://vooler.onrender.com";
+type Farmer = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  phone?: string;
+  simNumber?: string;
+  language?: string;
+  storageId?: string;
+  createdAt?: string;
+  hasDevicePin?: boolean;
 
+  location?: {
+    placeName?: string;
+    city?: string;
+    state?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+};
+
+type DashboardReading = {
+  chamber1Temperature?: number;
+  chamber2Temperature?: number;
+  chamber1SetTemperature?: number;
+  chamber2SetTemperature?: number;
+  humidity?: number;
+  power?: boolean;
+  online?: boolean;
+  timestamp?: string;
+  createdAt?: string;
+};
+
+type DeviceCondition = {
+  success?: boolean;
+  storageId?: string;
+  latest?: DashboardReading | null;
+
+  controls?: {
+    emergencyShutdown?: boolean;
+    requestedBy?: string | null;
+    requestedAt?: string | null;
+  };
+};
+
+type AdminPage = "login" | "dashboard" | "farmer" | "register";
+type FarmerTab = "details" | "device" | "entry";
 
 // =====================================================
-// ADMIN PAGE
+// HELPERS
+// =====================================================
+
+const getFarmerId = (farmer?: Farmer | null) => {
+  return farmer?.id || farmer?._id || "";
+};
+
+const getInitials = (name?: string) => {
+  if (!name) return "F";
+
+  const parts = name.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+};
+
+const getLanguageName = (code?: string) => {
+  switch (code) {
+    case "en":
+      return "English";
+    case "bn":
+      return "বাংলা";
+    case "hi":
+      return "हिन्दी";
+    case "as":
+      return "অসমীয়া";
+    default:
+      return code || "--";
+  }
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "--";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "--";
+
+  return date.toLocaleString();
+};
+
+const formatRegistrationDate = (value?: string) => {
+  if (!value) return "--";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "--";
+
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getLocationText = (farmer?: Farmer | null) => {
+  if (!farmer?.location) {
+    return "Not configured";
+  }
+
+  if (farmer.location.placeName) {
+    return farmer.location.placeName;
+  }
+
+  const parts = [
+    farmer.location.city,
+    farmer.location.state,
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(", ");
+  }
+
+  if (
+    typeof farmer.location.latitude === "number" &&
+    typeof farmer.location.longitude === "number"
+  ) {
+    return `${farmer.location.latitude}, ${farmer.location.longitude}`;
+  }
+
+  return "Not configured";
+};
+
+// =====================================================
+// REUSABLE UI
+// =====================================================
+
+function BackButton({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="mb-5 flex-row items-center"
+    >
+      <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-teal-50">
+        <Text className="text-xl font-bold text-teal-700">‹</Text>
+      </View>
+
+      <Text className="font-bold text-teal-700">
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function SectionHeading({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: string;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <View className="mb-4 flex-row items-center">
+      <View className="mr-3 h-11 w-11 items-center justify-center rounded-2xl bg-teal-50">
+        <Text className="text-xl">{icon}</Text>
+      </View>
+
+      <View className="flex-1">
+        <Text className="text-xl font-bold text-slate-900">
+          {title}
+        </Text>
+
+        {subtitle ? (
+          <Text className="mt-1 text-sm text-slate-500">
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function StatusBadge({
+  label,
+  type = "neutral",
+}: {
+  label: string;
+  type?: "good" | "danger" | "warning" | "info" | "neutral";
+}) {
+  const box = {
+    good: "bg-emerald-100 border-emerald-200",
+    danger: "bg-red-100 border-red-200",
+    warning: "bg-amber-100 border-amber-200",
+    info: "bg-sky-100 border-sky-200",
+    neutral: "bg-slate-100 border-slate-200",
+  };
+
+  const text = {
+    good: "text-emerald-700",
+    danger: "text-red-700",
+    warning: "text-amber-700",
+    info: "text-sky-700",
+    neutral: "text-slate-600",
+  };
+
+  return (
+    <View
+      className={`rounded-full border px-3 py-1.5 ${box[type]}`}
+    >
+      <Text className={`text-xs font-bold ${text[type]}`}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function InfoRow({
+  icon,
+  label,
+  value,
+  last = false,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
+  return (
+    <View
+      className={`flex-row py-4 ${
+        last ? "" : "border-b border-slate-100"
+      }`}
+    >
+      <View className="mr-4 h-10 w-10 items-center justify-center rounded-xl bg-slate-50">
+        <Text className="text-lg">{icon}</Text>
+      </View>
+
+      <View className="flex-1">
+        <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          {label}
+        </Text>
+
+        <Text className="mt-1 text-base font-semibold text-slate-900">
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DeviceTile({
+  icon,
+  label,
+  value,
+  type = "neutral",
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  type?: "good" | "danger" | "warning" | "info" | "neutral";
+}) {
+  const backgrounds = {
+    good: "bg-emerald-50 border-emerald-100",
+    danger: "bg-red-50 border-red-100",
+    warning: "bg-amber-50 border-amber-100",
+    info: "bg-sky-50 border-sky-100",
+    neutral: "bg-white border-slate-200",
+  };
+
+  const values = {
+    good: "text-emerald-700",
+    danger: "text-red-700",
+    warning: "text-amber-700",
+    info: "text-sky-700",
+    neutral: "text-slate-900",
+  };
+
+  return (
+    <View
+      className={`mb-3 w-[48.5%] rounded-3xl border p-4 ${backgrounds[type]}`}
+    >
+      <Text className="text-2xl">{icon}</Text>
+
+      <Text className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </Text>
+
+      <Text className={`mt-1 text-xl font-bold ${values[type]}`}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function TemperatureBox({
+  label,
+  value,
+  accent = "teal",
+}: {
+  label: string;
+  value?: number;
+  accent?: "teal" | "blue";
+}) {
+  return (
+    <View className="flex-1 rounded-2xl bg-slate-50 p-4">
+      <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </Text>
+
+      <Text
+        className={`mt-2 text-3xl font-extrabold ${
+          accent === "blue"
+            ? "text-sky-600"
+            : "text-teal-700"
+        }`}
+      >
+        {typeof value === "number"
+          ? `${value.toFixed(1)}°C`
+          : "-- °C"}
+      </Text>
+    </View>
+  );
+}
+
+// =====================================================
+// MAIN ADMIN
 // =====================================================
 
 export default function AdminScreen() {
+  // ADMIN
+  const [adminKey, setAdminKey] = useState("");
+  const [adminVerified, setAdminVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [page, setPage] = useState<AdminPage>("login");
+  const [error, setError] = useState("");
 
-  // ===================================================
-  // ADMIN AUTH
-  // ===================================================
+  // FARMERS
+  const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [farmersLoading, setFarmersLoading] = useState(false);
+  const [selectedFarmer, setSelectedFarmer] =
+    useState<Farmer | null>(null);
 
-  const [
-    adminKey,
-    setAdminKey,
-  ] =
-    useState("");
+  const [activeFarmerTab, setActiveFarmerTab] =
+    useState<FarmerTab>("details");
 
+  // DEVICE
+  const [deviceCondition, setDeviceCondition] =
+    useState<DeviceCondition | null>(null);
 
-  const [
-    adminVerified,
-    setAdminVerified,
-  ] =
-    useState(false);
+  const [deviceLoading, setDeviceLoading] = useState(false);
+  const [deviceError, setDeviceError] = useState("");
 
+  // REGISTER
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [simNumber, setSimNumber] = useState("");
+  const [language, setLanguage] = useState("en");
+  const [devicePin, setDevicePin] = useState("");
+  const [registering, setRegistering] = useState(false);
 
-  const [
-    verifying,
-    setVerifying,
-  ] =
-    useState(false);
-
-
-  // ===================================================
-  // FARMER REGISTRATION FORM
-  // ===================================================
-
-  const [
-    name,
-    setName,
-  ] =
-    useState("");
-
-
-  const [
-    phone,
-    setPhone,
-  ] =
-    useState("");
-
-
-  const [
-    simNumber,
-    setSimNumber,
-  ] =
-    useState("");
-
-
-  const [
-    language,
-    setLanguage,
-  ] =
-    useState("en");
-
-
-  const [
-    registering,
-    setRegistering,
-  ] =
-    useState(false);
-
-
-  const [
-    error,
-    setError,
-  ] =
-    useState("");
-
-
-  // ===================================================
+  // =====================================================
   // VERIFY ADMIN
-  // ===================================================
+  // =====================================================
 
-  const verifyAdmin =
-    async () => {
+  const verifyAdmin = async () => {
+    if (!adminKey.trim()) {
+      setError("Please enter the admin key.");
+      return;
+    }
 
-      if (
-        !adminKey.trim()
-      ) {
+    try {
+      setVerifying(true);
+      setError("");
 
-        setError(
-          "Please enter the admin key."
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/verify`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": adminKey.trim(),
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Admin verification failed."
         );
-
-        return;
-
       }
 
+      setAdminVerified(true);
+      setPage("dashboard");
+    } catch (err: any) {
+      setAdminVerified(false);
+
+      setError(
+        err?.message || "Unable to verify admin key."
+      );
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // =====================================================
+  // FETCH FARMERS
+  // =====================================================
+
+  const fetchFarmers = useCallback(async () => {
+    if (!adminVerified || !adminKey.trim()) return;
+
+    try {
+      setFarmersLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/farmers`,
+        {
+          headers: {
+            "x-admin-key": adminKey.trim(),
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to load farmers."
+        );
+      }
+
+      if (Array.isArray(data)) {
+        setFarmers(data);
+      } else if (Array.isArray(data.farmers)) {
+        setFarmers(data.farmers);
+      } else {
+        setFarmers([]);
+      }
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          "Unable to load registered farmers."
+      );
+    } finally {
+      setFarmersLoading(false);
+    }
+  }, [adminVerified, adminKey]);
+
+  useEffect(() => {
+    if (adminVerified && page === "dashboard") {
+      fetchFarmers();
+    }
+  }, [adminVerified, page, fetchFarmers]);
+
+  // =====================================================
+  // DEVICE CONDITION
+  // =====================================================
+
+  const fetchDeviceCondition = useCallback(
+    async (storageId?: string) => {
+      if (!storageId) {
+        setDeviceCondition(null);
+        setDeviceError("No storage unit assigned.");
+        return;
+      }
 
       try {
+        setDeviceLoading(true);
+        setDeviceError("");
 
-        setVerifying(
-          true
+        const response = await fetch(
+          `${API_BASE_URL}/api/dashboard/${storageId}`
         );
 
-        setError("");
-
-
-        const response =
-          await fetch(
-            `${API_BASE_URL}/api/admin/verify`,
-            {
-              method:
-                "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                "x-admin-key":
-                  adminKey.trim(),
-              },
-            }
-          );
-
-
-        const data =
-          await response.json();
-
+        const data = await response.json();
 
         if (!response.ok) {
-
           throw new Error(
             data.message ||
-            "Admin verification failed."
+              "Unable to load device condition."
           );
-
         }
 
+        setDeviceCondition(data);
+      } catch (err: any) {
+        setDeviceCondition(null);
 
-        setAdminVerified(
-          true
-        );
-
-
-        Alert.alert(
-          "Admin Verified",
-          "You can now register a new farmer."
-        );
-
-      }
-      catch (err: any) {
-
-        console.log(
-          "ADMIN VERIFY ERROR:",
-          err
-        );
-
-
-        setAdminVerified(
-          false
-        );
-
-
-        setError(
+        setDeviceError(
           err?.message ||
-          "Unable to verify admin key."
+            "Unable to load device condition."
         );
-
+      } finally {
+        setDeviceLoading(false);
       }
-      finally {
-
-        setVerifying(
-          false
-        );
-
-      }
-
-    };
-
-
-  // ===================================================
-  // REGISTER FARMER
-  // ===================================================
-
-  const registerFarmer =
-    async () => {
-
-      if (
-        !adminVerified
-      ) {
-
-        setError(
-          "Admin verification is required."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !name.trim() ||
-        !phone.trim() ||
-        !simNumber.trim()
-      ) {
-
-        setError(
-          "Name, phone number and SIM number are required."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !/^\d{10}$/.test(
-          phone.trim()
-        )
-      ) {
-
-        setError(
-          "Farmer mobile number must contain exactly 10 digits."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !/^\d{10}$/.test(
-          simNumber.trim()
-        )
-      ) {
-
-        setError(
-          "SIM number must contain exactly 10 digits."
-        );
-
-        return;
-
-      }
-
-
-      try {
-
-        setRegistering(
-          true
-        );
-
-        setError("");
-
-
-        const response =
-          await fetch(
-            `${API_BASE_URL}/api/admin/register`,
-            {
-              method:
-                "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                "x-admin-key":
-                  adminKey.trim(),
-              },
-
-              body:
-                JSON.stringify({
-                  name:
-                    name.trim(),
-
-                  phone:
-                    phone.trim(),
-
-                  simNumber:
-                    simNumber.trim(),
-
-                  language,
-                }),
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.message ||
-            "Farmer registration failed."
-          );
-
-        }
-
-
-        Alert.alert(
-          "Registration Successful",
-          `${data.message}\n\nStorage ID: ${
-            data.farmer?.storageId ||
-            "CS001"
-          }`,
-          [
-            {
-              text:
-                "Register Another",
-
-              onPress:
-                () => {
-
-                  setName("");
-                  setPhone("");
-                  setSimNumber("");
-                  setLanguage(
-                    "en"
-                  );
-
-                },
-            },
-
-            {
-              text:
-                "Back to Login",
-
-              onPress:
-                () =>
-                  router.replace(
-                    "/"
-                  ),
-            },
-          ]
-        );
-
-      }
-      catch (err: any) {
-
-        console.log(
-          "REGISTER FARMER ERROR:",
-          err
-        );
-
-
-        setError(
-          err?.message ||
-          "Unable to register farmer."
-        );
-
-      }
-      finally {
-
-        setRegistering(
-          false
-        );
-
-      }
-
-    };
-
-
-  // ===================================================
-  // UI
-  // ===================================================
-
-  return (
-
-    <ScrollView
-
-      className="
-        flex-1
-        bg-background
-      "
-
-      contentContainerClassName="
-        px-5
-        pt-14
-        pb-20
-      "
-
-      keyboardShouldPersistTaps="handled"
-
-    >
-
-
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
-      <Text
-        className="
-          text-3xl
-          font-bold
-        "
-      >
-        ❄ VOOLER
-      </Text>
-
-
-      <Text
-        className="
-          text-xl
-          font-semibold
-          mt-2
-        "
-      >
-
-        Admin Registration
-
-      </Text>
-
-
-      <Text
-        className="
-          text-muted-foreground
-          mt-1
-          mb-6
-        "
-      >
-
-        Register farmers with
-        authorized VOOLER admin access.
-
-      </Text>
-
-
-      {/* =================================================
-          ERROR
-      ================================================= */}
-
-      {error ? (
-
-        <Card
-          className="
-            mb-4
-            border-destructive
-          "
-        >
-
-          <CardContent
-            className="
-              pt-5
-            "
-          >
-
-            <Text
-              className="
-                text-destructive
-                font-medium
-              "
-            >
-
-              ⚠ {error}
-
-            </Text>
-
-          </CardContent>
-
-        </Card>
-
-      ) : null}
-
-
-      {/* =================================================
-          ADMIN VERIFICATION
-      ================================================= */}
-
-      <Card
-        className="mb-5"
-      >
-
-        <CardHeader>
-
-          <CardDescription>
-            ADMIN ACCESS
-          </CardDescription>
-
-
-          <CardTitle>
-            Verify Admin Key
-          </CardTitle>
-
-        </CardHeader>
-
-
-        <CardContent>
-
-
-          <Text
-            className="
-              text-sm
-              text-muted-foreground
-              mb-2
-            "
-          >
-
-            Admin Key
-
-          </Text>
-
-
-          <Input
-
-            value={
-              adminKey
-            }
-
-            onChangeText={
-              setAdminKey
-            }
-
-            placeholder="
-              Enter admin key
-            "
-
-            secureTextEntry={
-              true
-            }
-
-            editable={
-              !adminVerified
-            }
-
-            className="
-              mb-4
-            "
-
-          />
-
-
-          {!adminVerified ? (
-
-            <Pressable
-
-              disabled={
-                verifying
-              }
-
-              onPress={
-                verifyAdmin
-              }
-
-              className="
-                rounded-xl
-                bg-primary
-                px-4
-                py-4
-              "
-
-              style={{
-                opacity:
-                  verifying
-                    ? 0.6
-                    : 1,
-              }}
-
-            >
-
-              <Text
-                className="
-                  text-center
-                  text-primary-foreground
-                  font-bold
-                "
-              >
-
-                {verifying
-                  ? "VERIFYING..."
-                  : "VERIFY ADMIN"}
-
-              </Text>
-
-            </Pressable>
-
-          ) : (
-
-            <View
-              className="
-                rounded-xl
-                border
-                border-emerald-500
-                bg-emerald-50
-                px-4
-                py-4
-              "
-            >
-
-              <Text
-                className="
-                  text-center
-                  text-emerald-700
-                  font-bold
-                "
-              >
-
-                ✓ ADMIN VERIFIED
-
-              </Text>
-
-            </View>
-
-          )}
-
-
-        </CardContent>
-
-      </Card>
-
-
-      {/* =================================================
-          FARMER FORM
-      ================================================= */}
-
-      {adminVerified ? (
-
-        <Card
-          className="mb-5"
-        >
-
-          <CardHeader>
-
-            <CardDescription>
-              NEW FARMER
-            </CardDescription>
-
-
-            <CardTitle>
-              Farmer Registration
-            </CardTitle>
-
-          </CardHeader>
-
-
-          <CardContent>
-
-
-            {/* NAME */}
-
-            <Text
-              className="
-                text-sm
-                font-semibold
-                mb-2
-              "
-            >
-              Farmer Name
-            </Text>
-
-
-            <Input
-
-              value={
-                name
-              }
-
-              onChangeText={
-                setName
-              }
-
-              placeholder="
-                Enter farmer name
-              "
-
-              autoCapitalize="words"
-
-              className="
-                mb-4
-              "
-
-            />
-
-
-            {/* PHONE */}
-
-            <Text
-              className="
-                text-sm
-                font-semibold
-                mb-2
-              "
-            >
-              Farmer Mobile Number
-            </Text>
-
-
-            <Input
-
-              value={
-                phone
-              }
-
-              onChangeText={
-                (
-                  value
-                ) =>
-                  setPhone(
-                    value.replace(
-                      /\D/g,
-                      ""
-                    ).slice(
-                      0,
-                      10
-                    )
-                  )
-              }
-
-              placeholder="
-                10-digit mobile number
-              "
-
-              keyboardType="phone-pad"
-
-              maxLength={
-                10
-              }
-
-              className="
-                mb-4
-              "
-
-            />
-
-
-            {/* SIM */}
-
-            <Text
-              className="
-                text-sm
-                font-semibold
-                mb-2
-              "
-            >
-              Storage SIM Number
-            </Text>
-
-
-            <Input
-
-              value={
-                simNumber
-              }
-
-              onChangeText={
-                (
-                  value
-                ) =>
-                  setSimNumber(
-                    value.replace(
-                      /\D/g,
-                      ""
-                    ).slice(
-                      0,
-                      10
-                    )
-                  )
-              }
-
-              placeholder="
-                10-digit SIM number
-              "
-
-              keyboardType="phone-pad"
-
-              maxLength={
-                10
-              }
-
-              className="
-                mb-5
-              "
-
-            />
-
-
-            {/* LANGUAGE */}
-
-            <Text
-              className="
-                text-sm
-                font-semibold
-                mb-3
-              "
-            >
-              Preferred Language
-            </Text>
-
-
-            <View
-              className="
-                flex-row
-                flex-wrap
-                gap-2
-                mb-6
-              "
-            >
-
-
-              {[
-                {
-                  code:
-                    "en",
-
-                  label:
-                    "English",
-                },
-
-                {
-                  code:
-                    "bn",
-
-                  label:
-                    "বাংলা",
-                },
-
-                {
-                  code:
-                    "hi",
-
-                  label:
-                    "हिन्दी",
-                },
-
-                {
-                  code:
-                    "as",
-
-                  label:
-                    "অসমীয়া",
-                },
-              ].map(
-                (
-                  option
-                ) => (
-
-                  <Pressable
-
-                    key={
-                      option.code
-                    }
-
-                    onPress={
-                      () =>
-                        setLanguage(
-                          option.code
-                        )
-                    }
-
-                    className={`
-                      rounded-xl
-                      border
-                      px-4
-                      py-3
-
-                      ${
-                        language ===
-                        option.code
-
-                          ? "bg-primary border-primary"
-
-                          : "bg-background border-border"
-                      }
-                    `}
-
-                  >
-
-                    <Text
-
-                      className={
-                        language ===
-                        option.code
-
-                          ? "text-primary-foreground font-semibold"
-
-                          : "font-semibold"
-                      }
-
-                    >
-
-                      {option.label}
-
-                    </Text>
-
-                  </Pressable>
-
-                )
-              )}
-
-            </View>
-
-
-            {/* REGISTER */}
-
-            <Pressable
-
-              disabled={
-                registering
-              }
-
-              onPress={
-                registerFarmer
-              }
-
-              className="
-                rounded-xl
-                bg-primary
-                px-4
-                py-4
-              "
-
-              style={{
-                opacity:
-                  registering
-                    ? 0.6
-                    : 1,
-              }}
-
-            >
-
-              <Text
-                className="
-                  text-center
-                  text-primary-foreground
-                  font-bold
-                "
-              >
-
-                {registering
-                  ? "REGISTERING..."
-                  : "REGISTER FARMER"}
-
-              </Text>
-
-            </Pressable>
-
-
-          </CardContent>
-
-        </Card>
-
-      ) : null}
-
-
-      {/* =================================================
-          BACK
-      ================================================= */}
-
-      <Pressable
-
-        onPress={
-          () =>
-            router.replace(
-              "/"
-            )
-        }
-
-        className="
-          rounded-xl
-          border
-          border-border
-          px-4
-          py-4
-        "
-
-      >
-
-        <Text
-          className="
-            text-center
-            font-semibold
-          "
-        >
-
-          ← Back to Farmer Login
-
-        </Text>
-
-      </Pressable>
-
-
-    </ScrollView>
-
+    },
+    []
   );
 
+  // =====================================================
+  // FARMER
+  // =====================================================
+
+  const openFarmer = (farmer: Farmer) => {
+    setSelectedFarmer(farmer);
+    setActiveFarmerTab("details");
+    setDeviceCondition(null);
+    setDeviceError("");
+    setPage("farmer");
+
+    if (farmer.storageId) {
+      fetchDeviceCondition(farmer.storageId);
+    }
+  };
+
+  // =====================================================
+  // REGISTRATION
+  // =====================================================
+
+  const clearRegistrationForm = () => {
+    setName("");
+    setPhone("");
+    setSimNumber("");
+    setLanguage("en");
+    setDevicePin("");
+  };
+
+  const registerFarmer = async () => {
+    if (
+      !name.trim() ||
+      !phone.trim() ||
+      !simNumber.trim() ||
+      !devicePin.trim()
+    ) {
+      setError("Please complete all farmer details.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone.trim())) {
+      setError(
+        "Farmer mobile number must contain exactly 10 digits."
+      );
+      return;
+    }
+
+    if (!/^\d{10}$/.test(simNumber.trim())) {
+      setError(
+        "Storage SIM number must contain exactly 10 digits."
+      );
+      return;
+    }
+
+    if (!/^\d{4}$/.test(devicePin.trim())) {
+      setError("Device PIN must contain exactly 4 digits.");
+      return;
+    }
+
+    try {
+      setRegistering(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/register`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": adminKey.trim(),
+          },
+
+          body: JSON.stringify({
+            name: name.trim(),
+            phone: phone.trim(),
+            simNumber: simNumber.trim(),
+            language,
+            devicePin: devicePin.trim(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Farmer registration failed."
+        );
+      }
+
+      const farmerName = data.farmer?.name || name.trim();
+
+      clearRegistrationForm();
+      await fetchFarmers();
+
+      Alert.alert(
+        "Registration Complete",
+        `${farmerName} has been added to VOOLER.`,
+        [
+          {
+            text: "Done",
+            onPress: () => setPage("dashboard"),
+          },
+        ]
+      );
+    } catch (err: any) {
+      setError(
+        err?.message || "Unable to register farmer."
+      );
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
+  const logoutAdmin = () => {
+    setAdminKey("");
+    setAdminVerified(false);
+    setFarmers([]);
+    setSelectedFarmer(null);
+    setDeviceCondition(null);
+    setError("");
+    setPage("login");
+  };
+
+  // =====================================================
+  // LOGIN
+  // =====================================================
+
+  if (page === "login") {
+    return (
+      <ScrollView
+        className="flex-1 bg-slate-50"
+        contentContainerClassName="pb-20"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="rounded-b-[40px] bg-teal-700 px-6 pb-12 pt-16">
+          <View className="h-16 w-16 items-center justify-center rounded-3xl bg-white/15">
+            <Text className="text-3xl">❄️</Text>
+          </View>
+
+          <Text className="mt-6 text-xs font-bold uppercase tracking-[3px] text-teal-100">
+            VOOLER MANAGEMENT
+          </Text>
+
+          <Text className="mt-2 text-4xl font-extrabold text-white">
+            Admin Portal
+          </Text>
+
+          <Text className="mt-3 max-w-[300px] text-base leading-6 text-teal-100">
+            Manage farmers, storage access and device
+            conditions.
+          </Text>
+        </View>
+
+        <View className="-mt-5 px-5">
+          <View className="rounded-3xl border border-slate-200 bg-white p-6">
+            <View className="mb-6 flex-row items-center">
+              <View className="mr-3 h-11 w-11 items-center justify-center rounded-2xl bg-teal-50">
+                <Text className="text-xl">🔑</Text>
+              </View>
+
+              <View>
+                <Text className="text-xl font-bold text-slate-900">
+                  Admin Access
+                </Text>
+
+                <Text className="mt-1 text-sm text-slate-500">
+                  Enter your authorized admin key
+                </Text>
+              </View>
+            </View>
+
+            {error ? (
+              <View className="mb-4 rounded-2xl bg-red-50 p-4">
+                <Text className="font-semibold text-red-700">
+                  ⚠ {error}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text className="mb-2 text-sm font-bold text-slate-700">
+              Admin Key
+            </Text>
+
+            <Input
+              value={adminKey}
+              onChangeText={setAdminKey}
+              placeholder="Enter admin key"
+              secureTextEntry
+              autoCapitalize="none"
+              className="mb-5"
+            />
+
+            <Pressable
+              disabled={verifying}
+              onPress={verifyAdmin}
+              className="rounded-2xl bg-teal-700 px-5 py-4"
+              style={{
+                opacity: verifying ? 0.6 : 1,
+              }}
+            >
+              <Text className="text-center text-base font-bold text-white">
+                {verifying
+                  ? "Verifying..."
+                  : "Continue to Dashboard →"}
+              </Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            onPress={() => router.replace("/")}
+            className="mt-5 rounded-2xl border border-slate-200 bg-white px-4 py-4"
+          >
+            <Text className="text-center font-bold text-slate-700">
+              ← Return to Farmer Login
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // =====================================================
+  // REGISTER FARMER
+  // =====================================================
+
+  if (page === "register") {
+    return (
+      <ScrollView
+        className="flex-1 bg-slate-50"
+        contentContainerClassName="px-5 pb-24 pt-14"
+        keyboardShouldPersistTaps="handled"
+      >
+        <BackButton
+          label="Admin Dashboard"
+          onPress={() => {
+            setError("");
+            setPage("dashboard");
+          }}
+        />
+
+        <Text className="text-3xl font-extrabold text-slate-900">
+          New Farmer
+        </Text>
+
+        <Text className="mt-2 mb-7 text-base leading-6 text-slate-500">
+          Create a farmer account and configure access to
+          the VOOLER storage unit.
+        </Text>
+
+        {error ? (
+          <View className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4">
+            <Text className="font-semibold text-red-700">
+              ⚠ {error}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* PERSONAL DETAILS */}
+
+        <View className="mb-5 rounded-3xl border border-slate-200 bg-white p-5">
+          <SectionHeading
+            icon="👨‍🌾"
+            title="Personal Details"
+            subtitle="Farmer account information"
+          />
+
+          <Text className="mb-2 text-sm font-bold text-slate-700">
+            Farmer Name
+          </Text>
+
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="Full name"
+            autoCapitalize="words"
+            className="mb-4"
+          />
+
+          <Text className="mb-2 text-sm font-bold text-slate-700">
+            Mobile Number
+          </Text>
+
+          <Input
+            value={phone}
+            onChangeText={(value) =>
+              setPhone(
+                value.replace(/\D/g, "").slice(0, 10)
+              )
+            }
+            placeholder="10-digit mobile number"
+            keyboardType="phone-pad"
+            maxLength={10}
+          />
+        </View>
+
+        {/* STORAGE */}
+
+        <View className="mb-5 rounded-3xl border border-slate-200 bg-white p-5">
+          <SectionHeading
+            icon="❄️"
+            title="Storage Assignment"
+            subtitle="Prototype storage configuration"
+          />
+
+          <Text className="mb-2 text-sm font-bold text-slate-700">
+            Storage SIM Number
+          </Text>
+
+          <Input
+            value={simNumber}
+            onChangeText={(value) =>
+              setSimNumber(
+                value.replace(/\D/g, "").slice(0, 10)
+              )
+            }
+            placeholder="10-digit SIM number"
+            keyboardType="phone-pad"
+            maxLength={10}
+          />
+
+          <View className="mt-4 flex-row items-center justify-between rounded-2xl bg-teal-50 p-4">
+            <View>
+              <Text className="text-xs font-bold uppercase tracking-wider text-teal-600">
+                Assigned Storage
+              </Text>
+
+              <Text className="mt-1 text-xl font-bold text-teal-800">
+                CS001
+              </Text>
+            </View>
+
+            <Text className="text-3xl">❄️</Text>
+          </View>
+        </View>
+
+        {/* DOOR ACCESS */}
+
+        <View className="mb-5 rounded-3xl border border-slate-200 bg-white p-5">
+          <SectionHeading
+            icon="🔐"
+            title="Door Access"
+            subtitle="Physical keypad security"
+          />
+
+          <Text className="mb-2 text-sm font-bold text-slate-700">
+            4-Digit Device PIN
+          </Text>
+
+          <Input
+            value={devicePin}
+            onChangeText={(value) =>
+              setDevicePin(
+                value.replace(/\D/g, "").slice(0, 4)
+              )
+            }
+            placeholder="••••"
+            keyboardType="number-pad"
+            secureTextEntry
+            maxLength={4}
+          />
+
+          <Text className="mt-3 text-xs leading-5 text-slate-500">
+            The farmer will enter this PIN on the physical
+            VOOLER door keypad.
+          </Text>
+        </View>
+
+        {/* LANGUAGE */}
+
+        <View className="mb-6 rounded-3xl border border-slate-200 bg-white p-5">
+          <SectionHeading
+            icon="🌐"
+            title="Preferred Language"
+            subtitle="Choose the farmer's interface language"
+          />
+
+          <View className="flex-row flex-wrap justify-between">
+            {[
+              { code: "en", label: "English" },
+              { code: "bn", label: "বাংলা" },
+              { code: "hi", label: "हिन्दी" },
+              { code: "as", label: "অসমীয়া" },
+            ].map((option) => {
+              const selected = language === option.code;
+
+              return (
+                <Pressable
+                  key={option.code}
+                  onPress={() => setLanguage(option.code)}
+                  className={`mb-3 w-[48%] rounded-2xl border px-4 py-4 ${
+                    selected
+                      ? "border-teal-700 bg-teal-700"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <Text
+                    className={`text-center font-bold ${
+                      selected
+                        ? "text-white"
+                        : "text-slate-700"
+                    }`}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <Pressable
+          disabled={registering}
+          onPress={registerFarmer}
+          className="rounded-2xl bg-teal-700 px-5 py-5"
+          style={{
+            opacity: registering ? 0.6 : 1,
+          }}
+        >
+          <Text className="text-center text-base font-bold text-white">
+            {registering
+              ? "Creating Farmer Account..."
+              : "✓ Register Farmer"}
+          </Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
+
+  // =====================================================
+  // FARMER MANAGEMENT
+  // =====================================================
+
+  if (page === "farmer" && selectedFarmer) {
+    const latest = deviceCondition?.latest;
+
+    return (
+      <ScrollView
+        className="flex-1 bg-slate-50"
+        contentContainerClassName="pb-24"
+        refreshControl={
+          <RefreshControl
+            refreshing={deviceLoading}
+            onRefresh={() =>
+              fetchDeviceCondition(
+                selectedFarmer.storageId
+              )
+            }
+          />
+        }
+      >
+        {/* PROFILE HERO */}
+
+        <View className="rounded-b-[36px] bg-teal-700 px-5 pb-7 pt-14">
+          <Pressable
+            onPress={() => {
+              setSelectedFarmer(null);
+              setDeviceCondition(null);
+              setDeviceError("");
+              setPage("dashboard");
+            }}
+            className="mb-6 flex-row items-center"
+          >
+            <Text className="mr-2 text-2xl font-bold text-white">
+              ‹
+            </Text>
+
+            <Text className="font-bold text-white">
+              Admin Dashboard
+            </Text>
+          </Pressable>
+
+          <View className="flex-row items-center">
+            <View className="mr-4 h-16 w-16 items-center justify-center rounded-3xl bg-white">
+              <Text className="text-xl font-extrabold text-teal-700">
+                {getInitials(selectedFarmer.name)}
+              </Text>
+            </View>
+
+            <View className="flex-1">
+              <Text className="text-2xl font-extrabold text-white">
+                {selectedFarmer.name || "Farmer"}
+              </Text>
+
+              <Text className="mt-1 text-sm text-teal-100">
+                {selectedFarmer.phone || "--"}
+              </Text>
+
+              <View className="mt-3 self-start rounded-full bg-white/15 px-3 py-1.5">
+                <Text className="text-xs font-bold text-white">
+                  ❄ {selectedFarmer.storageId || "No Storage"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View className="px-5 pt-5">
+          {/* TABS */}
+
+          <View className="mb-6 flex-row rounded-2xl bg-slate-200 p-1">
+            {[
+              {
+                id: "details" as FarmerTab,
+                label: "Details",
+              },
+              {
+                id: "device" as FarmerTab,
+                label: "Device",
+              },
+              {
+                id: "entry" as FarmerTab,
+                label: "Entry Log",
+              },
+            ].map((tab) => {
+              const selected =
+                activeFarmerTab === tab.id;
+
+              return (
+                <Pressable
+                  key={tab.id}
+                  onPress={() => {
+                    setActiveFarmerTab(tab.id);
+
+                    if (
+                      tab.id === "device" &&
+                      selectedFarmer.storageId
+                    ) {
+                      fetchDeviceCondition(
+                        selectedFarmer.storageId
+                      );
+                    }
+                  }}
+                  className={`flex-1 rounded-xl px-2 py-3 ${
+                    selected ? "bg-white" : ""
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-xs font-bold ${
+                      selected
+                        ? "text-teal-700"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* DETAILS */}
+
+          {activeFarmerTab === "details" ? (
+            <>
+              <SectionHeading
+                icon="👤"
+                title="Farmer Information"
+                subtitle="Registered account details"
+              />
+
+              <View className="rounded-3xl border border-slate-200 bg-white px-5">
+                <InfoRow
+                  icon="👨‍🌾"
+                  label="Farmer Name"
+                  value={selectedFarmer.name || "--"}
+                />
+
+                <InfoRow
+                  icon="📱"
+                  label="Mobile Number"
+                  value={selectedFarmer.phone || "--"}
+                />
+
+                <InfoRow
+                  icon="📶"
+                  label="Storage SIM"
+                  value={selectedFarmer.simNumber || "--"}
+                />
+
+                <InfoRow
+                  icon="🌐"
+                  label="Language"
+                  value={getLanguageName(
+                    selectedFarmer.language
+                  )}
+                />
+
+                <InfoRow
+                  icon="❄️"
+                  label="Storage Unit"
+                  value={selectedFarmer.storageId || "--"}
+                />
+
+                <InfoRow
+                  icon="📍"
+                  label="Storage Location"
+                  value={getLocationText(
+                    selectedFarmer
+                  )}
+                />
+
+                <InfoRow
+                  icon="📅"
+                  label="Registered"
+                  value={formatRegistrationDate(
+                    selectedFarmer.createdAt
+                  )}
+                  last
+                />
+              </View>
+            </>
+          ) : null}
+
+          {/* DEVICE */}
+
+          {activeFarmerTab === "device" ? (
+            <>
+              <SectionHeading
+                icon="📡"
+                title="Device Condition"
+                subtitle={`Live condition of ${
+                  selectedFarmer.storageId || "storage"
+                }`}
+              />
+
+              {deviceError ? (
+                <View className="mb-4 rounded-2xl bg-red-50 p-4">
+                  <Text className="font-semibold text-red-700">
+                    ⚠ {deviceError}
+                  </Text>
+                </View>
+              ) : null}
+
+              {deviceLoading && !deviceCondition ? (
+                <View className="rounded-3xl bg-white p-8">
+                  <Text className="text-center text-slate-500">
+                    Loading device condition...
+                  </Text>
+                </View>
+              ) : null}
+
+              {!deviceLoading &&
+              !latest &&
+              !deviceError ? (
+                <View className="rounded-3xl border border-slate-200 bg-white p-8">
+                  <Text className="text-center text-4xl">
+                    📡
+                  </Text>
+
+                  <Text className="mt-3 text-center font-bold text-slate-800">
+                    No readings available
+                  </Text>
+
+                  <Text className="mt-2 text-center text-sm text-slate-500">
+                    Sensor readings will appear when the
+                    VOOLER device sends data.
+                  </Text>
+                </View>
+              ) : null}
+
+              {latest ? (
+                <>
+                  {!latest.online ? (
+                    <View className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <Text className="font-bold text-amber-800">
+                        ⚠ Device Offline
+                      </Text>
+
+                      <Text className="mt-1 text-sm leading-5 text-amber-700">
+                        Showing the latest stored readings.
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View className="flex-row flex-wrap justify-between">
+                    <DeviceTile
+                      icon="📡"
+                      label="Device"
+                      value={
+                        latest.online
+                          ? "Online"
+                          : "Offline"
+                      }
+                      type={
+                        latest.online
+                          ? "good"
+                          : "danger"
+                      }
+                    />
+
+                    <DeviceTile
+                      icon="⚡"
+                      label="Power"
+                      value={
+                        latest.power
+                          ? "ON"
+                          : "OFF"
+                      }
+                      type={
+                        latest.power
+                          ? "good"
+                          : "danger"
+                      }
+                    />
+
+                    <DeviceTile
+                      icon="💧"
+                      label="Humidity"
+                      value={
+                        typeof latest.humidity ===
+                        "number"
+                          ? `${latest.humidity.toFixed(1)}%`
+                          : "--"
+                      }
+                      type="info"
+                    />
+
+                    <DeviceTile
+                      icon="🛡️"
+                      label="Emergency"
+                      value={
+                        deviceCondition?.controls
+                          ?.emergencyShutdown
+                          ? "Active"
+                          : "Normal"
+                      }
+                      type={
+                        deviceCondition?.controls
+                          ?.emergencyShutdown
+                          ? "danger"
+                          : "good"
+                      }
+                    />
+                  </View>
+
+                  {/* CHAMBER 1 */}
+
+                  <View className="mb-4 rounded-3xl border border-slate-200 bg-white p-5">
+                    <View className="mb-4 flex-row items-center justify-between">
+                      <View>
+                        <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Chamber 01
+                        </Text>
+
+                        <Text className="mt-1 text-lg font-bold text-slate-900">
+                          Temperature
+                        </Text>
+                      </View>
+
+                      <Text className="text-2xl">🌡️</Text>
+                    </View>
+
+                    <View className="flex-row gap-3">
+                      <TemperatureBox
+                        label="Current"
+                        value={
+                          latest.chamber1Temperature
+                        }
+                      />
+
+                      <TemperatureBox
+                        label="Set"
+                        value={
+                          latest.chamber1SetTemperature
+                        }
+                        accent="blue"
+                      />
+                    </View>
+                  </View>
+
+                  {/* CHAMBER 2 */}
+
+                  <View className="mb-4 rounded-3xl border border-slate-200 bg-white p-5">
+                    <View className="mb-4 flex-row items-center justify-between">
+                      <View>
+                        <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Chamber 02
+                        </Text>
+
+                        <Text className="mt-1 text-lg font-bold text-slate-900">
+                          Temperature
+                        </Text>
+                      </View>
+
+                      <Text className="text-2xl">🌡️</Text>
+                    </View>
+
+                    <View className="flex-row gap-3">
+                      <TemperatureBox
+                        label="Current"
+                        value={
+                          latest.chamber2Temperature
+                        }
+                      />
+
+                      <TemperatureBox
+                        label="Set"
+                        value={
+                          latest.chamber2SetTemperature
+                        }
+                        accent="blue"
+                      />
+                    </View>
+                  </View>
+
+                  {/* LAST UPDATE */}
+
+                  <View className="mb-4 rounded-2xl bg-slate-100 p-4">
+                    <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Last Data Received
+                    </Text>
+
+                    <Text className="mt-1 font-bold text-slate-700">
+                      {formatDateTime(
+                        latest.createdAt ||
+                          latest.timestamp
+                      )}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    disabled={deviceLoading}
+                    onPress={() =>
+                      fetchDeviceCondition(
+                        selectedFarmer.storageId
+                      )
+                    }
+                    className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-4"
+                  >
+                    <Text className="text-center font-bold text-teal-700">
+                      {deviceLoading
+                        ? "Refreshing..."
+                        : "↻ Refresh Device Data"}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* ENTRY LOG */}
+
+          {activeFarmerTab === "entry" ? (
+            <>
+              <SectionHeading
+                icon="🔐"
+                title="Entry Log"
+                subtitle="Physical door access history"
+              />
+
+              <View className="rounded-3xl border border-slate-200 bg-white p-6">
+                <View className="items-center py-8">
+                  <View className="h-20 w-20 items-center justify-center rounded-full bg-teal-50">
+                    <Text className="text-4xl">🔐</Text>
+                  </View>
+
+                  <Text className="mt-5 text-xl font-bold text-slate-900">
+                    No entry records yet
+                  </Text>
+
+                  <Text className="mt-2 max-w-[280px] text-center text-sm leading-6 text-slate-500">
+                    Door access events will appear here once
+                    the VOOLER keypad and RTC are connected
+                    to the storage unit.
+                  </Text>
+                </View>
+
+                <View className="rounded-2xl bg-slate-50 p-4">
+                  <Text className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Future Log Information
+                  </Text>
+
+                  <View className="mt-3 flex-row justify-between">
+                    <Text className="text-sm text-slate-500">
+                      Farmer
+                    </Text>
+
+                    <Text className="text-sm font-semibold text-slate-700">
+                      Access
+                    </Text>
+
+                    <Text className="text-sm font-semibold text-slate-700">
+                      Date & Time
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : null}
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // =====================================================
+  // ADMIN DASHBOARD
+  // =====================================================
+
+  return (
+    <ScrollView
+      className="flex-1 bg-slate-50"
+      contentContainerClassName="pb-24"
+      refreshControl={
+        <RefreshControl
+          refreshing={farmersLoading}
+          onRefresh={fetchFarmers}
+        />
+      }
+    >
+      {/* HERO */}
+
+      <View className="rounded-b-[38px] bg-teal-700 px-5 pb-8 pt-14">
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-xs font-bold uppercase tracking-[3px] text-teal-100">
+              VOOLER MANAGEMENT
+            </Text>
+
+            <Text className="mt-2 text-3xl font-extrabold text-white">
+              Admin Dashboard
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={logoutAdmin}
+            className="rounded-full bg-white/15 px-4 py-2.5"
+          >
+            <Text className="font-bold text-white">
+              Logout
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text className="mt-3 text-sm text-teal-100">
+          Manage farmers and connected cold storage
+        </Text>
+
+        {/* SUMMARY */}
+
+        <View className="mt-7 flex-row gap-3">
+          <View className="flex-1 rounded-3xl bg-white/10 p-4">
+            <Text className="text-2xl">👨‍🌾</Text>
+
+            <Text className="mt-3 text-3xl font-extrabold text-white">
+              {farmers.length}
+            </Text>
+
+            <Text className="mt-1 text-xs font-bold uppercase tracking-wider text-teal-100">
+              Farmers
+            </Text>
+          </View>
+
+          <View className="flex-1 rounded-3xl bg-white/10 p-4">
+            <Text className="text-2xl">❄️</Text>
+
+            <Text className="mt-3 text-2xl font-extrabold text-white">
+              CS001
+            </Text>
+
+            <Text className="mt-1 text-xs font-bold uppercase tracking-wider text-teal-100">
+              Storage Unit
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View className="px-5 pt-6">
+        {error ? (
+          <View className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4">
+            <Text className="font-semibold text-red-700">
+              ⚠ {error}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* REGISTER */}
+
+        <Pressable
+          onPress={() => {
+            setError("");
+            clearRegistrationForm();
+            setPage("register");
+          }}
+          className="mb-7 flex-row items-center rounded-3xl bg-teal-50 p-5"
+        >
+          <View className="mr-4 h-14 w-14 items-center justify-center rounded-2xl bg-teal-700">
+            <Text className="text-3xl font-light text-white">
+              +
+            </Text>
+          </View>
+
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-slate-900">
+              Register New Farmer
+            </Text>
+
+            <Text className="mt-1 text-sm text-slate-500">
+              Add farmer & assign door access
+            </Text>
+          </View>
+
+          <Text className="text-2xl font-bold text-teal-700">
+            ›
+          </Text>
+        </Pressable>
+
+        {/* FARMERS */}
+
+        <SectionHeading
+          icon="👨‍🌾"
+          title="Registered Farmers"
+          subtitle="Tap a farmer to manage their account"
+        />
+
+        {farmersLoading && farmers.length === 0 ? (
+          <View className="rounded-3xl bg-white p-8">
+            <Text className="text-center text-slate-500">
+              Loading farmers...
+            </Text>
+          </View>
+        ) : null}
+
+        {!farmersLoading && farmers.length === 0 ? (
+          <View className="rounded-3xl border border-slate-200 bg-white p-8">
+            <Text className="text-center text-4xl">
+              👨‍🌾
+            </Text>
+
+            <Text className="mt-4 text-center text-lg font-bold text-slate-800">
+              No farmers yet
+            </Text>
+
+            <Text className="mt-2 text-center text-sm text-slate-500">
+              Register your first VOOLER farmer above.
+            </Text>
+          </View>
+        ) : null}
+
+        {farmers.map((farmer, index) => (
+          <Pressable
+            key={
+              getFarmerId(farmer) ||
+              `${farmer.phone}-${index}`
+            }
+            onPress={() => openFarmer(farmer)}
+            className="mb-4"
+          >
+            <View className="rounded-3xl border border-slate-200 bg-white p-5">
+              <View className="flex-row items-center">
+                {/* AVATAR */}
+
+                <View className="mr-4 h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
+                  <Text className="text-lg font-extrabold text-teal-700">
+                    {getInitials(farmer.name)}
+                  </Text>
+                </View>
+
+                {/* INFO */}
+
+                <View className="flex-1">
+                  <Text className="text-lg font-bold text-slate-900">
+                    {farmer.name || "Unnamed Farmer"}
+                  </Text>
+
+                  <Text className="mt-1 text-sm text-slate-500">
+                    📱 {farmer.phone || "--"}
+                  </Text>
+                </View>
+
+                {/* STORAGE */}
+
+                <StatusBadge
+                  label={farmer.storageId || "--"}
+                  type="info"
+                />
+              </View>
+
+              <View className="mt-4 flex-row items-center justify-between border-t border-slate-100 pt-4">
+                <View className="flex-row items-center">
+                  <Text className="mr-2 text-sm text-slate-400">
+                    🌐
+                  </Text>
+
+                  <Text className="text-sm font-semibold text-slate-600">
+                    {getLanguageName(farmer.language)}
+                  </Text>
+                </View>
+
+                <Text className="font-bold text-teal-700">
+                  Manage ›
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        ))}
+
+        <Text className="mt-5 text-center text-xs text-slate-400">
+          VOOLER • Smart Solar Cold Storage
+        </Text>
+      </View>
+    </ScrollView>
+  );
 }

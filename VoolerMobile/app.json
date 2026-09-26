@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "VoolerMobile",
+    "name": "Vooler",
     "slug": "VoolerMobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/vooler-icon.png",
     "scheme": "voolermyobile",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
@@ -16,7 +16,7 @@
     "android": {
       "package": "com.sumedhabasu.vooler",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/vooler-icon.png",
         "backgroundColor": "#ffffff"
       }
     },
