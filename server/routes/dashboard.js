@@ -40,7 +40,6 @@ router.get(
           .status(404)
           .json({
             success: false,
-
             message:
               "Storage ID not found",
           });
@@ -82,7 +81,13 @@ router.get(
 
 
       // =================================================
-      // GET DEVICE CONTROL / SET TEMPERATURES
+      // GET DEVICE COMMAND
+      //
+      // DeviceCommand is still used for things such as
+      // emergency shutdown.
+      //
+      // Set temperatures now come FROM the ESP32/OLED
+      // and are stored inside Reading.
       // =================================================
 
       let command =
@@ -92,7 +97,6 @@ router.get(
         });
 
 
-      // If no command exists yet, create defaults
       if (!command) {
 
         command =
@@ -102,12 +106,6 @@ router.get(
 
             emergencyShutdown:
               false,
-
-            chamber1SetTemperature:
-              18,
-
-            chamber2SetTemperature:
-              18,
           });
 
       }
@@ -174,7 +172,9 @@ router.get(
             latestReading.storageId,
 
 
-          // CURRENT TEMPERATURES
+          // =============================================
+          // CURRENT TEMPERATURES FROM SENSORS
+          // =============================================
 
           chamber1Temperature:
             typeof latestReading
@@ -198,18 +198,35 @@ router.get(
               : null,
 
 
-          // SET TEMPERATURES
+          // =============================================
+          // SET TEMPERATURES FROM OLED / ESP32
+          // =============================================
 
           chamber1SetTemperature:
-            command
-              .chamber1SetTemperature,
+            typeof latestReading
+              .chamber1SetTemperature ===
+            "number"
+
+              ? latestReading
+                  .chamber1SetTemperature
+
+              : null,
+
 
           chamber2SetTemperature:
-            command
-              .chamber2SetTemperature,
+            typeof latestReading
+              .chamber2SetTemperature ===
+            "number"
+
+              ? latestReading
+                  .chamber2SetTemperature
+
+              : null,
 
 
+          // =============================================
           // OTHER SENSOR DATA
+          // =============================================
 
           humidity:
             latestReading.humidity,
@@ -233,9 +250,9 @@ router.get(
       // =================================================
       // FORMAT HISTORY
       //
-      // We attach the CURRENT set temperature values
-      // to each history item so the website/app graphs
-      // can show Current vs Set.
+      // Every reading contains the set temperature that
+      // was selected on the physical VOOLER unit at that
+      // particular time.
       // =================================================
 
       const history =
@@ -253,7 +270,7 @@ router.get(
                   reading.storageId,
 
 
-                // CURRENT VALUES
+                // CURRENT TEMPERATURES
 
                 chamber1Temperature:
                   typeof reading
@@ -277,15 +294,28 @@ router.get(
                     : null,
 
 
-                // SET VALUES
+                // SET TEMPERATURES FROM OLED
 
                 chamber1SetTemperature:
-                  command
-                    .chamber1SetTemperature,
+                  typeof reading
+                    .chamber1SetTemperature ===
+                  "number"
+
+                    ? reading
+                        .chamber1SetTemperature
+
+                    : null,
+
 
                 chamber2SetTemperature:
-                  command
-                    .chamber2SetTemperature,
+                  typeof reading
+                    .chamber2SetTemperature ===
+                  "number"
+
+                    ? reading
+                        .chamber2SetTemperature
+
+                    : null,
 
 
                 humidity:
@@ -325,19 +355,13 @@ router.get(
         history,
 
 
+        // Device controls are separate from sensor/OLED
+        // readings. Currently used for emergency shutdown.
         controls: {
 
           emergencyShutdown:
             command
               .emergencyShutdown,
-
-          chamber1SetTemperature:
-            command
-              .chamber1SetTemperature,
-
-          chamber2SetTemperature:
-            command
-              .chamber2SetTemperature,
 
           requestedBy:
             command

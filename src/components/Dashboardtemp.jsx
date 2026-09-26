@@ -41,6 +41,22 @@ function Dashboard({
   ] = useState(null);
 
 
+  // =====================================================
+  // SET TEMPERATURES
+  // =====================================================
+
+  const [
+    chamber1SetTemperature,
+    setChamber1SetTemperature,
+  ] = useState(null);
+
+
+  const [
+    chamber2SetTemperature,
+    setChamber2SetTemperature,
+  ] = useState(null);
+
+
   const [
     humidity,
     setHumidity,
@@ -169,6 +185,20 @@ function Dashboard({
 
                 : null
 
+            );
+
+
+            setChamber1SetTemperature(
+              typeof data.latest.chamber1SetTemperature === "number"
+                ? data.latest.chamber1SetTemperature
+                : null
+            );
+
+
+            setChamber2SetTemperature(
+              typeof data.latest.chamber2SetTemperature === "number"
+                ? data.latest.chamber2SetTemperature
+                : null
             );
 
 
@@ -1455,90 +1485,94 @@ function Dashboard({
 
         <section className="chamber-grid">
 
-
           {/* CHAMBER 1 */}
-
           <div className="monitor-card chamber-card">
+            <div className="card-icon">🌡</div>
+            <h3>Chamber 1</h3>
 
-            <div className="card-icon">
-              🌡
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              width: "100%",
+              marginTop: "12px",
+              marginBottom: "18px",
+            }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, opacity: 0.7, marginBottom: "10px" }}>
+                  SET TEMPERATURE
+                </div>
+                <div className="sensor-value chamber-temperature-value">
+                  {chamber1SetTemperature !== null
+                    ? `${chamber1SetTemperature}°C`
+                    : "-- °C"}
+                </div>
+              </div>
+
+              <div style={{
+                textAlign: "center",
+                borderLeft: "1px solid rgba(0, 0, 0, 0.12)",
+                paddingLeft: "20px",
+              }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, opacity: 0.7, marginBottom: "10px" }}>
+                  CURRENT TEMPERATURE
+                </div>
+                <div className="sensor-value chamber-temperature-value">
+                  {chamber1Temperature !== null
+                    ? `${chamber1Temperature}°C`
+                    : "-- °C"}
+                </div>
+              </div>
             </div>
 
-
-            <h3>
-              Chamber 1
-            </h3>
-
-
-            <div className="sensor-value chamber-temperature-value">
-
-              {chamber1Temperature !==
-              null
-
-                ? `${chamber1Temperature}°C`
-
-                : "-- °C"}
-
+            <div className={`status-badge ${getStatusClass(chamber1Status)}`}>
+              {translateStatus(chamber1Status)}
             </div>
-
-
-            <div
-              className={
-                `status-badge ${getStatusClass(
-                  chamber1Status
-                )}`
-              }
-            >
-
-              {translateStatus(
-                chamber1Status
-              )}
-
-            </div>
-
           </div>
 
-
           {/* CHAMBER 2 */}
-
           <div className="monitor-card chamber-card">
+            <div className="card-icon">🌡</div>
+            <h3>Chamber 2</h3>
 
-            <div className="card-icon">
-              🌡
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              width: "100%",
+              marginTop: "12px",
+              marginBottom: "18px",
+            }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, opacity: 0.7, marginBottom: "10px" }}>
+                  SET TEMPERATURE
+                </div>
+                <div className="sensor-value chamber-temperature-value">
+                  {chamber2SetTemperature !== null
+                    ? `${chamber2SetTemperature}°C`
+                    : "-- °C"}
+                </div>
+              </div>
+
+              <div style={{
+                textAlign: "center",
+                borderLeft: "1px solid rgba(0, 0, 0, 0.12)",
+                paddingLeft: "20px",
+              }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, opacity: 0.7, marginBottom: "10px" }}>
+                  CURRENT TEMPERATURE
+                </div>
+                <div className="sensor-value chamber-temperature-value">
+                  {chamber2Temperature !== null
+                    ? `${chamber2Temperature}°C`
+                    : "-- °C"}
+                </div>
+              </div>
             </div>
 
-
-            <h3>
-              Chamber 2
-            </h3>
-
-
-            <div className="sensor-value chamber-temperature-value">
-
-              {chamber2Temperature !==
-              null
-
-                ? `${chamber2Temperature}°C`
-
-                : "-- °C"}
-
+            <div className={`status-badge ${getStatusClass(chamber2Status)}`}>
+              {translateStatus(chamber2Status)}
             </div>
-
-
-            <div
-              className={
-                `status-badge ${getStatusClass(
-                  chamber2Status
-                )}`
-              }
-            >
-
-              {translateStatus(
-                chamber2Status
-              )}
-
-            </div>
-
           </div>
 
         </section>

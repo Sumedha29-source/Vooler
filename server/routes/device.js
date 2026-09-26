@@ -19,8 +19,15 @@ router.post(
       const {
         storageId,
         deviceKey,
+
+        // Current temperatures from DS18B20
         chamber1Temperature,
         chamber2Temperature,
+
+        // Set temperatures selected on OLED
+        chamber1SetTemperature,
+        chamber2SetTemperature,
+
         humidity,
         power,
       } = req.body;
@@ -35,6 +42,8 @@ router.post(
         !deviceKey ||
         chamber1Temperature === undefined ||
         chamber2Temperature === undefined ||
+        chamber1SetTemperature === undefined ||
+        chamber2SetTemperature === undefined ||
         humidity === undefined ||
         power === undefined
       ) {
@@ -45,7 +54,7 @@ router.post(
             success: false,
 
             message:
-              "storageId, deviceKey, chamber1Temperature, chamber2Temperature, humidity and power are required",
+              "storageId, deviceKey, current temperatures, set temperatures, humidity and power are required",
           });
 
       }
@@ -96,7 +105,7 @@ router.post(
 
 
       // =================================================
-      // CONVERT VALUES
+      // CONVERT TEMPERATURE + HUMIDITY VALUES
       // =================================================
 
       const chamber1Value =
@@ -111,6 +120,18 @@ router.post(
         );
 
 
+      const chamber1SetValue =
+        Number(
+          chamber1SetTemperature
+        );
+
+
+      const chamber2SetValue =
+        Number(
+          chamber2SetTemperature
+        );
+
+
       const humidityValue =
         Number(
           humidity
@@ -118,7 +139,7 @@ router.post(
 
 
       // =================================================
-      // TEMPERATURE VALIDATION
+      // CURRENT TEMPERATURE VALIDATION
       // =================================================
 
       if (
@@ -133,7 +154,7 @@ router.post(
             success: false,
 
             message:
-              "Invalid Chamber 1 temperature",
+              "Invalid Chamber 1 current temperature",
           });
 
       }
@@ -151,7 +172,85 @@ router.post(
             success: false,
 
             message:
-              "Invalid Chamber 2 temperature",
+              "Invalid Chamber 2 current temperature",
+          });
+
+      }
+
+
+      // =================================================
+      // SET TEMPERATURE VALIDATION
+      // =================================================
+
+      if (
+        !Number.isFinite(
+          chamber1SetValue
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Invalid Chamber 1 set temperature",
+          });
+
+      }
+
+
+      if (
+        !Number.isFinite(
+          chamber2SetValue
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Invalid Chamber 2 set temperature",
+          });
+
+      }
+
+
+      // =================================================
+      // SAFE SET-TEMPERATURE RANGE
+      // =================================================
+
+      if (
+        chamber1SetValue < 0 ||
+        chamber1SetValue > 40
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Chamber 1 set temperature must be between 0°C and 40°C",
+          });
+
+      }
+
+
+      if (
+        chamber2SetValue < 0 ||
+        chamber2SetValue > 40
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Chamber 2 set temperature must be between 0°C and 40°C",
           });
 
       }
@@ -256,11 +355,19 @@ router.post(
           storageId:
             farmer.storageId,
 
+          // Current temperatures
           chamber1Temperature:
             chamber1Value,
 
           chamber2Temperature:
             chamber2Value,
+
+          // OLED set temperatures
+          chamber1SetTemperature:
+            chamber1SetValue,
+
+          chamber2SetTemperature:
+            chamber2SetValue,
 
           humidity:
             humidityValue,
@@ -283,8 +390,14 @@ router.post(
           chamber1Temperature:
             chamber1Value,
 
+          chamber1SetTemperature:
+            chamber1SetValue,
+
           chamber2Temperature:
             chamber2Value,
+
+          chamber2SetTemperature:
+            chamber2SetValue,
 
           humidity:
             humidityValue,
@@ -305,7 +418,7 @@ router.post(
           success: true,
 
           message:
-            "Sensor data stored successfully",
+            "VOOLER data stored successfully",
 
           reading: {
 
@@ -318,8 +431,14 @@ router.post(
             chamber1Temperature:
               reading.chamber1Temperature,
 
+            chamber1SetTemperature:
+              reading.chamber1SetTemperature,
+
             chamber2Temperature:
               reading.chamber2Temperature,
+
+            chamber2SetTemperature:
+              reading.chamber2SetTemperature,
 
             humidity:
               reading.humidity,
@@ -354,7 +473,7 @@ router.post(
           success: false,
 
           message:
-            "Server error while saving sensor data",
+            "Server error while saving VOOLER data",
         });
 
     }

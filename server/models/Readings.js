@@ -9,6 +9,10 @@ const readingSchema =
         trim: true,
       },
 
+      // ===============================================
+      // CURRENT TEMPERATURES FROM DS18B20 SENSORS
+      // ===============================================
+
       chamber1Temperature: {
         type: Number,
         required: true,
@@ -18,6 +22,24 @@ const readingSchema =
         type: Number,
         required: true,
       },
+
+      // ===============================================
+      // SET TEMPERATURES SELECTED ON VOOLER OLED
+      // ===============================================
+
+      chamber1SetTemperature: {
+        type: Number,
+        required: true,
+      },
+
+      chamber2SetTemperature: {
+        type: Number,
+        required: true,
+      },
+
+      // ===============================================
+      // OTHER SENSOR DATA
+      // ===============================================
 
       humidity: {
         type: Number,
@@ -45,6 +67,11 @@ readingSchema.index({
   createdAt: -1,
 });
 
+// Automatically delete sensor readings after 90 days
+readingSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 90 * 24 * 60 * 60 }
+);
 
 module.exports =
   mongoose.model(
