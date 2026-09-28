@@ -2,6 +2,7 @@ const express = require("express");
 
 const Farmer = require("../models/Farmers");
 const SmsCommand = require("../models/SmsCommands");
+const EntryLog = require("../models/EntryLog");
 
 const router = express.Router();
 
@@ -14,14 +15,12 @@ const verifyAdmin = (req, res, next) => {
   const adminKey =
     req.header("x-admin-key");
 
-
   if (!adminKey) {
     return res.status(401).json({
       success: false,
       message: "Admin key required",
     });
   }
-
 
   if (
     adminKey !==
@@ -32,7 +31,6 @@ const verifyAdmin = (req, res, next) => {
       message: "Invalid admin key",
     });
   }
-
 
   next();
 };
@@ -64,7 +62,6 @@ router.post(
   verifyAdmin,
   async (req, res) => {
     try {
-
       const {
         name,
         phone,
@@ -186,7 +183,6 @@ router.post(
         "as",
       ];
 
-
       if (
         !allowedLanguages.includes(
           cleanLanguage
@@ -211,7 +207,6 @@ router.post(
         await Farmer.findOne({
           phone: cleanPhone,
         });
-
 
       if (existingFarmer) {
         return res
@@ -247,9 +242,7 @@ router.post(
             cleanDevicePin,
         });
 
-
       await farmer.save();
-
 
       console.log(
         "Farmer registered:",
@@ -265,15 +258,12 @@ router.post(
       let smsQueued =
         false;
 
-
       try {
-
         const welcomeMessage =
           `Welcome to VOOLER! ` +
           `Your registration is successful. ` +
           `Storage ID: ${farmer.storageId}. ` +
           `Send 1 to the VOOLER number anytime to receive the current storage status.`;
-
 
         await SmsCommand.create({
           phone:
@@ -289,18 +279,14 @@ router.post(
             "pending",
         });
 
-
         smsQueued =
           true;
-
       }
       catch (smsError) {
-
         console.error(
           "Unable to queue welcome SMS:",
           smsError.message
         );
-
       }
 
 
@@ -346,15 +332,12 @@ router.post(
               true,
           },
         });
-
     }
     catch (error) {
-
       console.error(
         "Farmer registration error:",
         error
       );
-
 
       if (
         error.code === 11000
@@ -369,7 +352,6 @@ router.post(
           });
       }
 
-
       return res
         .status(500)
         .json({
@@ -378,7 +360,6 @@ router.post(
           message:
             "Server error while registering farmer",
         });
-
     }
   }
 );
@@ -395,9 +376,7 @@ router.get(
   "/farmers",
   verifyAdmin,
   async (req, res) => {
-
     try {
-
       const farmers =
         await Farmer
           .find()
@@ -406,21 +385,17 @@ router.get(
           })
           .lean();
 
-
       return res.json({
         success: true,
 
         farmers,
       });
-
     }
     catch (error) {
-
       console.error(
         "Fetch farmers error:",
         error
       );
-
 
       return res
         .status(500)
@@ -430,7 +405,6 @@ router.get(
           message:
             "Unable to fetch farmers",
         });
-
     }
   }
 );
@@ -453,9 +427,7 @@ router.patch(
   "/farmers/:farmerId/device-pin",
   verifyAdmin,
   async (req, res) => {
-
     try {
-
       const cleanPin =
         String(
           req.body.devicePin || ""
@@ -503,7 +475,6 @@ router.patch(
           }
         );
 
-
       if (!farmer) {
         return res
           .status(404)
@@ -542,15 +513,12 @@ router.patch(
             true,
         },
       });
-
     }
     catch (error) {
-
       console.error(
         "Device PIN update error:",
         error
       );
-
 
       return res
         .status(500)
@@ -560,7 +528,100 @@ router.patch(
           message:
             "Unable to update device PIN",
         });
+    }
+  }
+);
 
+
+// =====================================================
+// GET ENTRY LOGS
+//
+// Admin only.
+//
+// Endpoint:
+// GET /api/admin/entry-logs/:storageId
+//
+// The admin dashboard uses this endpoint to retrieve
+// physical VOOLER door-access events stored in MongoDB.
+//
+// The device key is never returned to the frontend.
+// =====================================================
+
+router.get(
+  "/entry-logs/:storageId",
+  verifyAdmin,
+  async (req, res) => {
+    try {
+      const storageId =
+        String(
+          req.params.storageId || ""
+        ).trim();
+
+
+      // =================================================
+      // VALIDATE STORAGE ID
+      // =================================================
+
+      if (!storageId) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            message:
+              "Storage ID is required",
+          });
+      }
+
+
+      // =================================================
+      // FETCH ENTRY LOGS
+      //
+      // Newest events appear first.
+      // Limit prevents an unlimited database response.
+      // =================================================
+
+      const entryLogs =
+        await EntryLog
+          .find({
+            storageId,
+          })
+          .sort({
+            timestamp: -1,
+          })
+          .limit(100)
+          .lean();
+
+
+      // =================================================
+      // SUCCESS
+      // =================================================
+
+      return res.json({
+        success: true,
+
+        storageId,
+
+        count:
+          entryLogs.length,
+
+        entryLogs,
+      });
+    }
+    catch (error) {
+      console.error(
+        "Fetch entry logs error:",
+        error
+      );
+
+      return res
+        .status(500)
+        .json({
+          success: false,
+
+          message:
+            "Unable to fetch entry logs",
+        });
     }
   }
 );

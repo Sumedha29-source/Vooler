@@ -4,12 +4,10 @@ const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   "https://vooler.onrender.com";
 
-
 function AdminDashboard({
   adminKey,
   onAdminLogout,
 }) {
-
   // =====================================================
   // FARMER LIST
   // =====================================================
@@ -56,6 +54,26 @@ function AdminDashboard({
   const [
     deviceError,
     setDeviceError,
+  ] = useState("");
+
+
+  // =====================================================
+  // ENTRY LOG
+  // =====================================================
+
+  const [
+    entryLogs,
+    setEntryLogs,
+  ] = useState([]);
+
+  const [
+    entryLogsLoading,
+    setEntryLogsLoading,
+  ] = useState(false);
+
+  const [
+    entryLogsError,
+    setEntryLogsError,
   ] = useState("");
 
 
@@ -111,12 +129,9 @@ function AdminDashboard({
 
   const fetchFarmers =
     async () => {
-
       try {
-
         setLoading(true);
         setError("");
-
 
         const response =
           await fetch(
@@ -129,45 +144,33 @@ function AdminDashboard({
             }
           );
 
-
         const data =
           await response.json();
 
-
         if (!response.ok) {
-
           throw new Error(
             data.message ||
             "Unable to fetch farmers"
           );
-
         }
-
 
         setFarmers(
           data.farmers || []
         );
-
       }
       catch (err) {
-
         console.error(
           "Fetch farmers error:",
           err
         );
 
-
         setError(
           err.message
         );
-
       }
       finally {
-
         setLoading(false);
-
       }
-
     };
 
 
@@ -176,9 +179,7 @@ function AdminDashboard({
   // =====================================================
 
   useEffect(() => {
-
     fetchFarmers();
-
   }, [adminKey]);
 
 
@@ -188,58 +189,97 @@ function AdminDashboard({
 
   const fetchDeviceCondition =
     async (storageId) => {
-
       try {
-
         setDeviceLoading(true);
         setDeviceError("");
-
 
         const response =
           await fetch(
             `${API_BASE_URL}/api/dashboard/${storageId}`
           );
 
-
         const data =
           await response.json();
 
-
         if (!response.ok) {
-
           throw new Error(
             data.message ||
             "Unable to load device condition"
           );
-
         }
 
-
         setDeviceData(data);
-
       }
       catch (err) {
-
         console.error(
           "Device condition error:",
           err
         );
 
-
         setDeviceError(
           err.message
         );
 
-
         setDeviceData(null);
-
       }
       finally {
-
         setDeviceLoading(false);
-
       }
+    };
 
+
+  // =====================================================
+  // FETCH ENTRY LOGS
+  // =====================================================
+
+  const fetchEntryLogs =
+    async (storageId) => {
+      try {
+        setEntryLogsLoading(true);
+        setEntryLogsError("");
+
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/admin/entry-logs/${encodeURIComponent(
+              storageId
+            )}`,
+            {
+              headers: {
+                "x-admin-key":
+                  adminKey,
+              },
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+            "Unable to load entry logs"
+          );
+        }
+
+        setEntryLogs(
+          data.entryLogs || []
+        );
+      }
+      catch (err) {
+        console.error(
+          "Entry log error:",
+          err
+        );
+
+        setEntryLogsError(
+          err.message
+        );
+
+        setEntryLogs([]);
+      }
+      finally {
+        setEntryLogsLoading(false);
+      }
     };
 
 
@@ -249,7 +289,6 @@ function AdminDashboard({
 
   const handleFarmerClick =
     (farmer) => {
-
       setSelectedFarmer(
         farmer
       );
@@ -259,20 +298,19 @@ function AdminDashboard({
       );
 
       setDeviceData(null);
-
       setDeviceError("");
 
+      setEntryLogs([]);
+      setEntryLogsError("");
 
       fetchDeviceCondition(
         farmer.storageId
       );
 
-
       window.scrollTo({
         top: 0,
         behavior: "smooth",
       });
-
     };
 
 
@@ -282,7 +320,6 @@ function AdminDashboard({
 
   const handleBackToFarmers =
     () => {
-
       setSelectedFarmer(null);
 
       setActiveFarmerTab(
@@ -290,15 +327,15 @@ function AdminDashboard({
       );
 
       setDeviceData(null);
-
       setDeviceError("");
 
+      setEntryLogs([]);
+      setEntryLogsError("");
 
       window.scrollTo({
         top: 0,
         behavior: "smooth",
       });
-
     };
 
 
@@ -308,7 +345,6 @@ function AdminDashboard({
 
   const handleRegisterFarmer =
     () => {
-
       setShowRegistration(
         true
       );
@@ -316,12 +352,10 @@ function AdminDashboard({
       setRegisterMessage("");
       setRegisterError("");
 
-
       window.scrollTo({
         top: 0,
         behavior: "smooth",
       });
-
     };
 
 
@@ -331,7 +365,6 @@ function AdminDashboard({
 
   const handleBackFromRegistration =
     () => {
-
       setShowRegistration(
         false
       );
@@ -339,12 +372,10 @@ function AdminDashboard({
       setRegisterMessage("");
       setRegisterError("");
 
-
       window.scrollTo({
         top: 0,
         behavior: "smooth",
       });
-
     };
 
 
@@ -354,9 +385,7 @@ function AdminDashboard({
 
   const handleRegistrationSubmit =
     async (e) => {
-
       e.preventDefault();
-
 
       setRegisterMessage("");
       setRegisterError("");
@@ -372,13 +401,11 @@ function AdminDashboard({
         !simNumber.trim() ||
         !devicePin.trim()
       ) {
-
         setRegisterError(
           "Please fill in all required fields."
         );
 
         return;
-
       }
 
 
@@ -391,13 +418,11 @@ function AdminDashboard({
           phone.trim()
         )
       ) {
-
         setRegisterError(
           "Farmer mobile number must contain exactly 10 digits."
         );
 
         return;
-
       }
 
 
@@ -410,13 +435,11 @@ function AdminDashboard({
           simNumber.trim()
         )
       ) {
-
         setRegisterError(
           "SIM800L number must contain exactly 10 digits."
         );
 
         return;
-
       }
 
 
@@ -429,13 +452,11 @@ function AdminDashboard({
           devicePin.trim()
         )
       ) {
-
         setRegisterError(
           "Device PIN must contain exactly 4 digits."
         );
 
         return;
-
       }
 
 
@@ -444,11 +465,9 @@ function AdminDashboard({
       // =================================================
 
       try {
-
         setRegisterLoading(
           true
         );
-
 
         const response =
           await fetch(
@@ -484,20 +503,16 @@ function AdminDashboard({
             }
           );
 
-
         const data =
           await response.json();
 
-
         if (!response.ok) {
-
           setRegisterError(
             data.message ||
             "Unable to register farmer"
           );
 
           return;
-
         }
 
 
@@ -509,46 +524,29 @@ function AdminDashboard({
           "Farmer registered successfully."
         );
 
-
-        // Clear form
-
         setName("");
-
         setPhone("");
-
         setSimNumber("");
-
         setLanguage("en");
-
         setDevicePin("");
 
-
-        // Refresh farmer list
-
         await fetchFarmers();
-
       }
       catch (err) {
-
         console.error(
           "Register farmer error:",
           err
         );
 
-
         setRegisterError(
           "Unable to contact VOOLER server."
         );
-
       }
       finally {
-
         setRegisterLoading(
           false
         );
-
       }
-
     };
 
 
@@ -558,9 +556,7 @@ function AdminDashboard({
 
   const getLanguageName =
     (value) => {
-
       switch (value) {
-
         case "bn":
           return "বাংলা";
 
@@ -572,9 +568,7 @@ function AdminDashboard({
 
         default:
           return "English";
-
       }
-
     };
 
 
@@ -584,18 +578,14 @@ function AdminDashboard({
 
   const getLocation =
     (farmer) => {
-
       if (
         farmer.location
           ?.placeName
       ) {
-
         return farmer
           .location
           .placeName;
-
       }
-
 
       if (
         farmer.location
@@ -603,17 +593,13 @@ function AdminDashboard({
         farmer.location
           ?.longitude != null
       ) {
-
         return (
           `${farmer.location.latitude}, ` +
           `${farmer.location.longitude}`
         );
-
       }
 
-
       return "Not configured";
-
     };
 
 
@@ -635,7 +621,6 @@ function AdminDashboard({
       "18px",
   };
 
-
   const labelStyle = {
     margin:
       "0 0 7px",
@@ -656,7 +641,6 @@ function AdminDashboard({
       "uppercase",
   };
 
-
   const valueStyle = {
     margin:
       0,
@@ -674,9 +658,7 @@ function AdminDashboard({
   // =====================================================
 
   if (showRegistration) {
-
     return (
-
       <div className="dashboard-page">
 
         <nav className="dashboard-navbar">
@@ -684,7 +666,6 @@ function AdminDashboard({
           <div className="dashboard-logo">
             ❄ VOOLER Admin
           </div>
-
 
           <div className="dashboard-nav-right">
 
@@ -962,7 +943,6 @@ function AdminDashboard({
                   placeholder="Enter 4-digit PIN"
                 />
 
-
                 <p
                   style={{
                     margin:
@@ -984,13 +964,10 @@ function AdminDashboard({
               {/* STORAGE */}
 
               <div className="alert-safe">
-
                 📦 Assigned Storage:{" "}
-
                 <strong>
                   CS001
                 </strong>
-
               </div>
 
 
@@ -999,9 +976,7 @@ function AdminDashboard({
               {registerError && (
 
                 <div className="alert-danger">
-
                   ❌ {registerError}
-
                 </div>
 
               )}
@@ -1012,9 +987,7 @@ function AdminDashboard({
               {registerMessage && (
 
                 <div className="alert-safe">
-
                   ✅ {registerMessage}
-
                 </div>
 
               )}
@@ -1049,42 +1022,29 @@ function AdminDashboard({
         </main>
 
       </div>
-
     );
-
   }
-
-
-  // =====================================================
+    // =====================================================
   // SELECTED FARMER MANAGEMENT VIEW
   // =====================================================
 
   if (selectedFarmer) {
-
     return (
-
       <div className="dashboard-page">
 
         <nav className="dashboard-navbar">
-
           <div className="dashboard-logo">
             ❄ VOOLER Admin
           </div>
 
-
           <div className="dashboard-nav-right">
-
             <button
               type="button"
-              onClick={
-                onAdminLogout
-              }
+              onClick={onAdminLogout}
             >
               Logout
             </button>
-
           </div>
-
         </nav>
 
 
@@ -1092,30 +1052,15 @@ function AdminDashboard({
 
           <button
             type="button"
-            onClick={
-              handleBackToFarmers
-            }
+            onClick={handleBackToFarmers}
             style={{
-              border:
-                "none",
-
-              background:
-                "transparent",
-
-              cursor:
-                "pointer",
-
-              padding:
-                "4px 0",
-
-              marginBottom:
-                "16px",
-
-              fontWeight:
-                700,
-
-              color:
-                "#087f72",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: "4px 0",
+              marginBottom: "16px",
+              fontWeight: 700,
+              color: "#087f72",
             }}
           >
             ← Back to Farmers
@@ -1123,77 +1068,170 @@ function AdminDashboard({
 
 
           <section className="dashboard-header">
-
             <div>
-
               <h1>
                 👨‍🌾 {selectedFarmer.name}
               </h1>
 
               <p>
                 Storage{" "}
-                {
-                  selectedFarmer.storageId
-                }
+                {selectedFarmer.storageId}
               </p>
-
             </div>
-
           </section>
 
 
-          {/* TABS */}
+          {/* ================================================= */}
+          {/* FARMER MANAGEMENT TABS */}
+          {/* ================================================= */}
 
           <div
             style={{
-              display:
-                "flex",
-
-              gap:
-                "10px",
-
-              flexWrap:
-                "wrap",
-
-              marginBottom:
-                "22px",
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+              marginBottom: "22px",
             }}
           >
 
+            {/* FARMER DETAILS TAB */}
+
             <button
               type="button"
-              onClick={
-                () =>
-                  setActiveFarmerTab(
-                    "details"
-                  )
+              onClick={() =>
+                setActiveFarmerTab(
+                  "details"
+                )
               }
+              style={{
+                border:
+                  activeFarmerTab === "details"
+                    ? "1px solid #087f72"
+                    : "1px solid #dce8e5",
+
+                background:
+                  activeFarmerTab === "details"
+                    ? "#e8f7f4"
+                    : "#ffffff",
+
+                color:
+                  activeFarmerTab === "details"
+                    ? "#087f72"
+                    : "#33413e",
+
+                padding:
+                  "10px 16px",
+
+                borderRadius:
+                  "10px",
+
+                cursor:
+                  "pointer",
+
+                fontWeight:
+                  700,
+
+                fontFamily:
+                  "inherit",
+              }}
             >
-              👤 Farmer Details
+              👨‍🌾 Farmer Details
             </button>
 
 
+            {/* DEVICE CONDITION TAB */}
+
             <button
               type="button"
-              onClick={
-                () =>
-                  setActiveFarmerTab(
-                    "device"
-                  )
-              }
+              onClick={() => {
+                setActiveFarmerTab(
+                  "device"
+                );
+
+                fetchDeviceCondition(
+                  selectedFarmer.storageId
+                );
+              }}
+              style={{
+                border:
+                  activeFarmerTab === "device"
+                    ? "1px solid #087f72"
+                    : "1px solid #dce8e5",
+
+                background:
+                  activeFarmerTab === "device"
+                    ? "#e8f7f4"
+                    : "#ffffff",
+
+                color:
+                  activeFarmerTab === "device"
+                    ? "#087f72"
+                    : "#33413e",
+
+                padding:
+                  "10px 16px",
+
+                borderRadius:
+                  "10px",
+
+                cursor:
+                  "pointer",
+
+                fontWeight:
+                  700,
+
+                fontFamily:
+                  "inherit",
+              }}
             >
-              📡 Device Condition
+              📊 Device Condition
             </button>
 
 
+            {/* ENTRY LOG TAB */}
+
             <button
               type="button"
-              onClick={
-                () =>
-                  setActiveFarmerTab(
-                    "entry"
-                  )
-              }
+              onClick={() => {
+                setActiveFarmerTab(
+                  "entry"
+                );
+
+                fetchEntryLogs(
+                  selectedFarmer.storageId
+                );
+              }}
+              style={{
+                border:
+                  activeFarmerTab === "entry"
+                    ? "1px solid #087f72"
+                    : "1px solid #dce8e5",
+
+                background:
+                  activeFarmerTab === "entry"
+                    ? "#e8f7f4"
+                    : "#ffffff",
+
+                color:
+                  activeFarmerTab === "entry"
+                    ? "#087f72"
+                    : "#33413e",
+
+                padding:
+                  "10px 16px",
+
+                borderRadius:
+                  "10px",
+
+                cursor:
+                  "pointer",
+
+                fontWeight:
+                  700,
+
+                fontFamily:
+                  "inherit",
+              }}
             >
               🚪 Entry Log
             </button>
@@ -1203,9 +1241,9 @@ function AdminDashboard({
 
           <section className="history-section">
 
-            {/* ========================================= */}
+            {/* ================================================= */}
             {/* FARMER DETAILS */}
-            {/* ========================================= */}
+            {/* ================================================= */}
 
             {
               activeFarmerTab ===
@@ -1214,11 +1252,9 @@ function AdminDashboard({
                 <div>
 
                   <div className="section-heading">
-
                     <div>
-
                       <h2>
-                        👤 Farmer Details
+                        👨‍🌾 Farmer Details
                       </h2>
 
                       <p
@@ -1233,11 +1269,9 @@ function AdminDashboard({
                             "14px",
                         }}
                       >
-                        Registration and storage information.
+                        Registration and assigned VOOLER information.
                       </p>
-
                     </div>
-
                   </div>
 
 
@@ -1257,72 +1291,51 @@ function AdminDashboard({
                     }}
                   >
 
-                    <div style={detailCardStyle}>
+                    {/* NAME */}
 
+                    <div style={detailCardStyle}>
                       <p style={labelStyle}>
                         Farmer Name
                       </p>
 
                       <p style={valueStyle}>
-                        {
-                          selectedFarmer.name
-                        }
+                        {selectedFarmer.name}
                       </p>
-
                     </div>
 
 
-                    <div style={detailCardStyle}>
+                    {/* PHONE */}
 
+                    <div style={detailCardStyle}>
                       <p style={labelStyle}>
                         Mobile Number
                       </p>
 
                       <p style={valueStyle}>
-                        {
-                          selectedFarmer.phone
-                        }
+                        {selectedFarmer.phone}
                       </p>
-
                     </div>
 
 
-                    <div style={detailCardStyle}>
+                    {/* SIM */}
 
+                    <div style={detailCardStyle}>
                       <p style={labelStyle}>
                         SIM800L Number
                       </p>
 
                       <p style={valueStyle}>
                         {
-                          selectedFarmer.simNumber
+                          selectedFarmer.simNumber ||
+                          "Not available"
                         }
                       </p>
-
                     </div>
 
 
-                    <div style={detailCardStyle}>
-
-                      <p style={labelStyle}>
-                        Preferred Language
-                      </p>
-
-                      <p style={valueStyle}>
-
-                        {
-                          getLanguageName(
-                            selectedFarmer.language
-                          )
-                        }
-
-                      </p>
-
-                    </div>
-
+                    {/* STORAGE */}
 
                     <div style={detailCardStyle}>
-
                       <p style={labelStyle}>
                         Storage ID
                       </p>
@@ -1332,49 +1345,80 @@ function AdminDashboard({
                           selectedFarmer.storageId
                         }
                       </p>
-
                     </div>
 
 
-                    <div style={detailCardStyle}>
+                    {/* LANGUAGE */}
 
+                    <div style={detailCardStyle}>
+                      <p style={labelStyle}>
+                        Preferred Language
+                      </p>
+
+                      <p style={valueStyle}>
+                        {
+                          getLanguageName(
+                            selectedFarmer.language
+                          )
+                        }
+                      </p>
+                    </div>
+
+
+                    {/* LOCATION */}
+
+                    <div style={detailCardStyle}>
                       <p style={labelStyle}>
                         Storage Location
                       </p>
 
                       <p style={valueStyle}>
-
                         {
                           getLocation(
                             selectedFarmer
                           )
                         }
-
                       </p>
-
                     </div>
 
+                  </div>
 
-                    <div style={detailCardStyle}>
 
-                      <p style={labelStyle}>
-                        Registration Date
-                      </p>
+                  {/* DEVICE PIN SECURITY INFORMATION */}
 
-                      <p style={valueStyle}>
+                  <div
+                    style={{
+                      ...detailCardStyle,
 
-                        {
-                          selectedFarmer.createdAt
-                            ? new Date(
-                                selectedFarmer.createdAt
-                              ).toLocaleString()
-                            : "Not available"
-                        }
+                      marginTop:
+                        "14px",
+                    }}
+                  >
+                    <p style={labelStyle}>
+                      Physical Access PIN
+                    </p>
 
-                      </p>
+                    <p style={valueStyle}>
+                      🔒 Configured securely
+                    </p>
 
-                    </div>
+                    <p
+                      style={{
+                        margin:
+                          "8px 0 0",
 
+                        opacity:
+                          0.62,
+
+                        fontSize:
+                          "13px",
+
+                        lineHeight:
+                          1.5,
+                      }}
+                    >
+                      The farmer's 4-digit keypad PIN is not displayed on the dashboard for security.
+                    </p>
                   </div>
 
                 </div>
@@ -1383,9 +1427,9 @@ function AdminDashboard({
             }
 
 
-            {/* ========================================= */}
+            {/* ================================================= */}
             {/* DEVICE CONDITION */}
-            {/* ========================================= */}
+            {/* ================================================= */}
 
             {
               activeFarmerTab ===
@@ -1393,27 +1437,11 @@ function AdminDashboard({
 
                 <div>
 
-                  <div
-                    className="section-heading"
-                    style={{
-                      display:
-                        "flex",
-
-                      justifyContent:
-                        "space-between",
-
-                      gap:
-                        "14px",
-
-                      alignItems:
-                        "flex-start",
-                    }}
-                  >
+                  <div className="section-heading">
 
                     <div>
-
                       <h2>
-                        📡 Device Condition
+                        📊 Device Condition
                       </h2>
 
                       <p
@@ -1428,47 +1456,94 @@ function AdminDashboard({
                             "14px",
                         }}
                       >
-                        Latest condition of storage{" "}
+                        Latest sensor data from{" "}
                         {
                           selectedFarmer.storageId
                         }.
                       </p>
-
                     </div>
 
 
                     <button
                       type="button"
-                      onClick={
-                        () =>
-                          fetchDeviceCondition(
-                            selectedFarmer.storageId
-                          )
+                      onClick={() =>
+                        fetchDeviceCondition(
+                          selectedFarmer.storageId
+                        )
                       }
                       disabled={
                         deviceLoading
                       }
-                    >
+                      style={{
+                        border:
+                          "1px solid #87bdb5",
 
+                        background:
+                          "#f8fffd",
+
+                        color:
+                          "#087f72",
+
+                        borderRadius:
+                          "9px",
+
+                        padding:
+                          "9px 14px",
+
+                        cursor:
+                          deviceLoading
+                            ? "default"
+                            : "pointer",
+
+                        fontWeight:
+                          700,
+
+                        fontFamily:
+                          "inherit",
+                      }}
+                    >
                       {
                         deviceLoading
                           ? "Refreshing..."
                           : "↻ Refresh"
                       }
-
                     </button>
 
                   </div>
 
 
+                  {/* LOADING */}
+
                   {
+                    deviceLoading && (
+
+                      <div
+                        style={{
+                          padding:
+                            "30px",
+
+                          textAlign:
+                            "center",
+                        }}
+                      >
+                        Loading device condition...
+                      </div>
+
+                    )
+                  }
+
+
+                  {/* ERROR */}
+
+                  {
+                    !deviceLoading &&
                     deviceError && (
 
                       <div
                         className="alert-danger"
                         style={{
                           marginTop:
-                            "18px",
+                            "20px",
                         }}
                       >
                         ❌ {deviceError}
@@ -1478,466 +1553,391 @@ function AdminDashboard({
                   }
 
 
+                  {/* DEVICE DATA */}
+
                   {
-                    deviceLoading &&
-                    !deviceData
+                    !deviceLoading &&
+                    !deviceError &&
+                    deviceData?.latest
                       ? (
 
-                        <div
-                          style={{
-                            padding:
-                              "35px 20px",
+                        <>
 
-                            textAlign:
-                              "center",
+                          {/* STATUS SUMMARY */}
 
-                            opacity:
-                              0.7,
-                          }}
-                        >
-                          Loading device condition...
-                        </div>
+                          <div
+                            style={{
+                              display:
+                                "grid",
 
-                      )
+                              gridTemplateColumns:
+                                "repeat(auto-fit, minmax(190px, 1fr))",
 
-                      : deviceData &&
-                        deviceData.latest
-                        ? (
+                              gap:
+                                "14px",
 
-                          <>
+                              marginTop:
+                                "20px",
+                            }}
+                          >
 
-                            <div
-                              style={{
-                                display:
-                                  "grid",
+                            {/* DEVICE STATUS */}
 
-                                gridTemplateColumns:
-                                  "repeat(auto-fit, minmax(190px, 1fr))",
-
-                                gap:
-                                  "14px",
-
-                                marginTop:
-                                  "20px",
-                              }}
-                            >
-
-                              {/* ONLINE */}
-
-                              <div style={detailCardStyle}>
-
-                                <p style={labelStyle}>
-                                  Device Status
-                                </p>
-
-                                <p
-                                  style={{
-                                    ...valueStyle,
-
-                                    color:
-                                      deviceData.latest.online
-                                        ? "#087f72"
-                                        : "#b42318",
-                                  }}
-                                >
-
-                                  {
-                                    deviceData.latest.online
-                                      ? "● ONLINE"
-                                      : "● OFFLINE"
-                                  }
-
-                                </p>
-
-                              </div>
-
-
-                              {/* POWER */}
-
-                              <div style={detailCardStyle}>
-
-                                <p style={labelStyle}>
-                                  Power
-                                </p>
-
-                                <p
-                                  style={{
-                                    ...valueStyle,
-
-                                    color:
-                                      deviceData.latest.power
-                                        ? "#087f72"
-                                        : "#b42318",
-                                  }}
-                                >
-
-                                  {
-                                    deviceData.latest.power
-                                      ? "ON"
-                                      : "OFF"
-                                  }
-
-                                </p>
-
-                              </div>
-
-
-                              {/* HUMIDITY */}
-
-                              <div style={detailCardStyle}>
-
-                                <p style={labelStyle}>
-                                  Humidity
-                                </p>
-
-                                <p style={valueStyle}>
-
-                                  {
-                                    deviceData.latest.humidity ??
-                                    "----"
-                                  }%
-
-                                </p>
-
-                              </div>
-
-
-                              {/* EMERGENCY */}
-
-                              <div style={detailCardStyle}>
-
-                                <p style={labelStyle}>
-                                  Emergency Shutdown
-                                </p>
-
-                                <p
-                                  style={{
-                                    ...valueStyle,
-
-                                    color:
-                                      deviceData.controls
-                                        ?.emergencyShutdown
-                                        ? "#b42318"
-                                        : "#087f72",
-                                  }}
-                                >
-
-                                  {
-                                    deviceData.controls
-                                      ?.emergencyShutdown
-                                      ? "ACTIVE"
-                                      : "OFF"
-                                  }
-
-                                </p>
-
-                              </div>
-
-                            </div>
-
-
-                            {/* CHAMBERS */}
-
-                            <div
-                              style={{
-                                display:
-                                  "grid",
-
-                                gridTemplateColumns:
-                                  "repeat(auto-fit, minmax(260px, 1fr))",
-
-                                gap:
-                                  "14px",
-
-                                marginTop:
-                                  "14px",
-                              }}
-                            >
-
-                              {/* CHAMBER 1 */}
-
-                              <div style={detailCardStyle}>
-
-                                <p style={labelStyle}>
-                                  Chamber 1
-                                </p>
-
-
-                                <div
-                                  style={{
-                                    display:
-                                      "flex",
-
-                                    justifyContent:
-                                      "space-between",
-
-                                    gap:
-                                      "16px",
-
-                                    marginTop:
-                                      "10px",
-                                  }}
-                                >
-
-                                  <div>
-
-                                    <p
-                                      style={{
-                                        margin:
-                                          "0 0 4px",
-
-                                        fontSize:
-                                          "12px",
-
-                                        opacity:
-                                          0.6,
-                                      }}
-                                    >
-                                      CURRENT
-                                    </p>
-
-                                    <strong
-                                      style={{
-                                        fontSize:
-                                          "24px",
-                                      }}
-                                    >
-
-                                      {
-                                        deviceData.latest
-                                          .chamber1Temperature ??
-                                        "----"
-                                      }
-
-                                      {
-                                        deviceData.latest
-                                          .chamber1Temperature != null
-                                          ? "°C"
-                                          : ""
-                                      }
-
-                                    </strong>
-
-                                  </div>
-
-
-                                  <div>
-
-                                    <p
-                                      style={{
-                                        margin:
-                                          "0 0 4px",
-
-                                        fontSize:
-                                          "12px",
-
-                                        opacity:
-                                          0.6,
-                                      }}
-                                    >
-                                      SET
-                                    </p>
-
-                                    <strong
-                                      style={{
-                                        fontSize:
-                                          "24px",
-                                      }}
-                                    >
-
-                                      {
-                                        deviceData.latest
-                                          .chamber1SetTemperature ??
-                                        "----"
-                                      }
-
-                                      {
-                                        deviceData.latest
-                                          .chamber1SetTemperature != null
-                                          ? "°C"
-                                          : ""
-                                      }
-
-                                    </strong>
-
-                                  </div>
-
-                                </div>
-
-                              </div>
-
-
-                              {/* CHAMBER 2 */}
-
-                              <div style={detailCardStyle}>
-
-                                <p style={labelStyle}>
-                                  Chamber 2
-                                </p>
-
-
-                                <div
-                                  style={{
-                                    display:
-                                      "flex",
-
-                                    justifyContent:
-                                      "space-between",
-
-                                    gap:
-                                      "16px",
-
-                                    marginTop:
-                                      "10px",
-                                  }}
-                                >
-
-                                  <div>
-
-                                    <p
-                                      style={{
-                                        margin:
-                                          "0 0 4px",
-
-                                        fontSize:
-                                          "12px",
-
-                                        opacity:
-                                          0.6,
-                                      }}
-                                    >
-                                      CURRENT
-                                    </p>
-
-                                    <strong
-                                      style={{
-                                        fontSize:
-                                          "24px",
-                                      }}
-                                    >
-
-                                      {
-                                        deviceData.latest
-                                          .chamber2Temperature ??
-                                        "----"
-                                      }
-
-                                      {
-                                        deviceData.latest
-                                          .chamber2Temperature != null
-                                          ? "°C"
-                                          : ""
-                                      }
-
-                                    </strong>
-
-                                  </div>
-
-
-                                  <div>
-
-                                    <p
-                                      style={{
-                                        margin:
-                                          "0 0 4px",
-
-                                        fontSize:
-                                          "12px",
-
-                                        opacity:
-                                          0.6,
-                                      }}
-                                    >
-                                      SET
-                                    </p>
-
-                                    <strong
-                                      style={{
-                                        fontSize:
-                                          "24px",
-                                      }}
-                                    >
-
-                                      {
-                                        deviceData.latest
-                                          .chamber2SetTemperature ??
-                                        "----"
-                                      }
-
-                                      {
-                                        deviceData.latest
-                                          .chamber2SetTemperature != null
-                                          ? "°C"
-                                          : ""
-                                      }
-
-                                    </strong>
-
-                                  </div>
-
-                                </div>
-
-                              </div>
-
-                            </div>
-
-
-                            {/* LAST UPDATE */}
-
-                            <div
-                              style={{
-                                ...detailCardStyle,
-
-                                marginTop:
-                                  "14px",
-                              }}
-                            >
-
+                            <div style={detailCardStyle}>
                               <p style={labelStyle}>
-                                Last Data Received
+                                Device Status
+                              </p>
+
+                              <p
+                                style={{
+                                  ...valueStyle,
+
+                                  color:
+                                    deviceData.latest.online
+                                      ? "#087f72"
+                                      : "#c0392b",
+                                }}
+                              >
+                                {
+                                  deviceData.latest.online
+                                    ? "● Online"
+                                    : "● Offline"
+                                }
+                              </p>
+                            </div>
+
+
+                            {/* HUMIDITY */}
+
+                            <div style={detailCardStyle}>
+                              <p style={labelStyle}>
+                                Humidity
+                              </p>
+
+                              <p
+                                style={{
+                                  ...valueStyle,
+
+                                  fontSize:
+                                    "24px",
+                                }}
+                              >
+                                {
+                                  deviceData.latest
+                                    .humidity ??
+                                  "----"
+                                }
+
+                                {
+                                  deviceData.latest
+                                    .humidity != null
+                                    ? "%"
+                                    : ""
+                                }
+                              </p>
+                            </div>
+
+
+                            {/* POWER */}
+
+                            <div style={detailCardStyle}>
+                              <p style={labelStyle}>
+                                Power
                               </p>
 
                               <p style={valueStyle}>
-
                                 {
-                                  deviceData.latest.timestamp
-                                    ? new Date(
-                                        deviceData.latest.timestamp
-                                      ).toLocaleString()
-                                    : "Not available"
+                                  deviceData.latest.power
+                                    ? "⚡ ON"
+                                    : "○ OFF"
                                 }
-
                               </p>
+                            </div>
+
+                          </div>
+
+
+                          {/* CHAMBER TEMPERATURES */}
+
+                          <div
+                            style={{
+                              display:
+                                "grid",
+
+                              gridTemplateColumns:
+                                "repeat(auto-fit, minmax(250px, 1fr))",
+
+                              gap:
+                                "14px",
+
+                              marginTop:
+                                "14px",
+                            }}
+                          >
+
+                            {/* CHAMBER 1 */}
+
+                            <div style={detailCardStyle}>
+
+                              <p style={labelStyle}>
+                                Chamber 1
+                              </p>
+
+                              <div
+                                style={{
+                                  display:
+                                    "flex",
+
+                                  justifyContent:
+                                    "space-between",
+
+                                  gap:
+                                    "16px",
+
+                                  marginTop:
+                                    "10px",
+                                }}
+                              >
+
+                                <div>
+                                  <p
+                                    style={{
+                                      margin:
+                                        "0 0 4px",
+
+                                      fontSize:
+                                        "12px",
+
+                                      opacity:
+                                        0.6,
+                                    }}
+                                  >
+                                    CURRENT
+                                  </p>
+
+                                  <strong
+                                    style={{
+                                      fontSize:
+                                        "24px",
+                                    }}
+                                  >
+                                    {
+                                      deviceData.latest
+                                        .chamber1Temperature ??
+                                      "----"
+                                    }
+
+                                    {
+                                      deviceData.latest
+                                        .chamber1Temperature != null
+                                        ? "°C"
+                                        : ""
+                                    }
+                                  </strong>
+                                </div>
+
+
+                                <div>
+                                  <p
+                                    style={{
+                                      margin:
+                                        "0 0 4px",
+
+                                      fontSize:
+                                        "12px",
+
+                                      opacity:
+                                        0.6,
+                                    }}
+                                  >
+                                    SET
+                                  </p>
+
+                                  <strong
+                                    style={{
+                                      fontSize:
+                                        "24px",
+                                    }}
+                                  >
+                                    {
+                                      deviceData.latest
+                                        .chamber1SetTemperature ??
+                                      "----"
+                                    }
+
+                                    {
+                                      deviceData.latest
+                                        .chamber1SetTemperature != null
+                                        ? "°C"
+                                        : ""
+                                    }
+                                  </strong>
+                                </div>
+
+                              </div>
 
                             </div>
 
 
-                            {/* OFFLINE WARNING */}
+                            {/* CHAMBER 2 */}
 
-                            {
-                              !deviceData.latest.online && (
+                            <div style={detailCardStyle}>
 
-                                <div
-                                  className="alert-danger"
-                                  style={{
-                                    marginTop:
-                                      "14px",
-                                  }}
-                                >
-                                  ⚠️ This storage is currently offline.
-                                  Values shown above are the most recent
-                                  stored reading and may not represent the
-                                  current physical condition.
+                              <p style={labelStyle}>
+                                Chamber 2
+                              </p>
+
+                              <div
+                                style={{
+                                  display:
+                                    "flex",
+
+                                  justifyContent:
+                                    "space-between",
+
+                                  gap:
+                                    "16px",
+
+                                  marginTop:
+                                    "10px",
+                                }}
+                              >
+
+                                <div>
+                                  <p
+                                    style={{
+                                      margin:
+                                        "0 0 4px",
+
+                                      fontSize:
+                                        "12px",
+
+                                      opacity:
+                                        0.6,
+                                    }}
+                                  >
+                                    CURRENT
+                                  </p>
+
+                                  <strong
+                                    style={{
+                                      fontSize:
+                                        "24px",
+                                    }}
+                                  >
+                                    {
+                                      deviceData.latest
+                                        .chamber2Temperature ??
+                                      "----"
+                                    }
+
+                                    {
+                                      deviceData.latest
+                                        .chamber2Temperature != null
+                                        ? "°C"
+                                        : ""
+                                    }
+                                  </strong>
                                 </div>
 
-                              )
-                            }
 
-                          </>
+                                <div>
+                                  <p
+                                    style={{
+                                      margin:
+                                        "0 0 4px",
 
-                        )
+                                      fontSize:
+                                        "12px",
 
-                        : (
+                                      opacity:
+                                        0.6,
+                                    }}
+                                  >
+                                    SET
+                                  </p>
+
+                                  <strong
+                                    style={{
+                                      fontSize:
+                                        "24px",
+                                    }}
+                                  >
+                                    {
+                                      deviceData.latest
+                                        .chamber2SetTemperature ??
+                                      "----"
+                                    }
+
+                                    {
+                                      deviceData.latest
+                                        .chamber2SetTemperature != null
+                                        ? "°C"
+                                        : ""
+                                    }
+                                  </strong>
+                                </div>
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+
+                          {/* LAST DATA RECEIVED */}
+
+                          <div
+                            style={{
+                              ...detailCardStyle,
+
+                              marginTop:
+                                "14px",
+                            }}
+                          >
+                            <p style={labelStyle}>
+                              Last Data Received
+                            </p>
+
+                            <p style={valueStyle}>
+                              {
+                                deviceData.latest.timestamp
+                                  ? new Date(
+                                      deviceData.latest.timestamp
+                                    ).toLocaleString()
+                                  : "Not available"
+                              }
+                            </p>
+                          </div>
+
+
+                          {/* OFFLINE WARNING */}
+
+                          {
+                            !deviceData.latest.online && (
+
+                              <div
+                                className="alert-danger"
+                                style={{
+                                  marginTop:
+                                    "14px",
+                                }}
+                              >
+                                ⚠️ This storage is currently offline.
+                                Values shown above are the most recent
+                                stored reading and may not represent the
+                                current physical condition.
+                              </div>
+
+                            )
+                          }
+
+                        </>
+
+                      )
+                      : (
+                        !deviceLoading &&
+                        !deviceError && (
 
                           <div
                             style={{
@@ -1964,6 +1964,7 @@ function AdminDashboard({
                           </div>
 
                         )
+                      )
                   }
 
                 </div>
@@ -1972,9 +1973,9 @@ function AdminDashboard({
             }
 
 
-            {/* ========================================= */}
+            {/* ================================================= */}
             {/* ENTRY LOG */}
-            {/* ========================================= */}
+            {/* ================================================= */}
 
             {
               activeFarmerTab ===
@@ -2002,69 +2003,487 @@ function AdminDashboard({
                             "14px",
                         }}
                       >
-                        Physical VOOLER access history.
+                        Physical VOOLER access history for{" "}
+                        {
+                          selectedFarmer.storageId
+                        }.
                       </p>
 
                     </div>
 
+
+                    {/* REFRESH ENTRY LOG */}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        fetchEntryLogs(
+                          selectedFarmer.storageId
+                        )
+                      }
+                      disabled={
+                        entryLogsLoading
+                      }
+                      style={{
+                        border:
+                          "1px solid #87bdb5",
+
+                        background:
+                          "#f8fffd",
+
+                        color:
+                          "#087f72",
+
+                        borderRadius:
+                          "9px",
+
+                        padding:
+                          "9px 14px",
+
+                        cursor:
+                          entryLogsLoading
+                            ? "default"
+                            : "pointer",
+
+                        fontWeight:
+                          700,
+
+                        fontFamily:
+                          "inherit",
+                      }}
+                    >
+                      {
+                        entryLogsLoading
+                          ? "Refreshing..."
+                          : "↻ Refresh"
+                      }
+                    </button>
+
                   </div>
 
+
+                  {/* ENTRY LOG INFORMATION */}
 
                   <div
                     style={{
                       marginTop:
-                        "20px",
+                        "18px",
 
                       padding:
-                        "40px 20px",
+                        "12px 14px",
 
-                      textAlign:
-                        "center",
+                      background:
+                        "#f8fffd",
 
                       border:
-                        "1px dashed #ccd8d5",
+                        "1px solid #dcebe7",
 
                       borderRadius:
-                        "14px",
+                        "10px",
+
+                      fontSize:
+                        "13px",
+
+                      lineHeight:
+                        1.5,
+
+                      color:
+                        "#51615e",
                     }}
                   >
-
-                    <div
-                      style={{
-                        fontSize:
-                          "34px",
-
-                        marginBottom:
-                          "10px",
-                      }}
-                    >
-                      🚪
-                    </div>
-
-
-                    <h3>
-                      No entry records available
-                    </h3>
-
-
-                    <p
-                      style={{
-                        opacity:
-                          0.65,
-
-                        maxWidth:
-                          "520px",
-
-                        margin:
-                          "8px auto 0",
-                      }}
-                    >
-                      Entry records will appear here after the
-                      VOOLER keypad and RTC access system is
-                      connected to the backend.
-                    </p>
-
+                    Entry events are recorded by the VOOLER backend.
+                    The server also stores the time at which each record
+                    was received.
                   </div>
+
+
+                  {/* LOADING */}
+
+                  {
+                    entryLogsLoading && (
+
+                      <div
+                        style={{
+                          padding:
+                            "40px 20px",
+
+                          textAlign:
+                            "center",
+                        }}
+                      >
+                        Loading entry records...
+                      </div>
+
+                    )
+                  }
+
+
+                  {/* ERROR */}
+
+                  {
+                    !entryLogsLoading &&
+                    entryLogsError && (
+
+                      <div
+                        className="alert-danger"
+                        style={{
+                          marginTop:
+                            "20px",
+                        }}
+                      >
+                        ❌ {entryLogsError}
+                      </div>
+
+                    )
+                  }
+
+
+                  {/* ENTRY RECORDS */}
+
+                  {
+                    !entryLogsLoading &&
+                    !entryLogsError &&
+                    entryLogs.length > 0 && (
+
+                      <div
+                        style={{
+                          display:
+                            "grid",
+
+                          gap:
+                            "12px",
+
+                          marginTop:
+                            "20px",
+                        }}
+                      >
+
+                        {
+                          entryLogs.map(
+                            (log, index) => {
+
+                              const eventTime =
+                                log.timestamp ||
+                                log.createdAt;
+
+                              const serverTime =
+                                log.createdAt;
+
+                              const eventName =
+                                log.eventType ===
+                                "DOOR_CLOSED"
+                                  ? "Door Closed"
+                                  : "Door Entry";
+
+                              const eventIcon =
+                                log.eventType ===
+                                "DOOR_CLOSED"
+                                  ? "🔒"
+                                  : "🚪";
+
+                              return (
+
+                                <div
+                                  key={
+                                    log._id ||
+                                    `${eventTime}-${index}`
+                                  }
+                                  style={{
+                                    ...detailCardStyle,
+
+                                    display:
+                                      "grid",
+
+                                    gridTemplateColumns:
+                                      "auto 1fr",
+
+                                    gap:
+                                      "14px",
+
+                                    alignItems:
+                                      "start",
+                                  }}
+                                >
+
+                                  {/* ICON */}
+
+                                  <div
+                                    style={{
+                                      width:
+                                        "46px",
+
+                                      height:
+                                        "46px",
+
+                                      borderRadius:
+                                        "12px",
+
+                                      background:
+                                        "#e8f7f4",
+
+                                      display:
+                                        "flex",
+
+                                      alignItems:
+                                        "center",
+
+                                      justifyContent:
+                                        "center",
+
+                                      fontSize:
+                                        "22px",
+                                    }}
+                                  >
+                                    {eventIcon}
+                                  </div>
+
+
+                                  {/* EVENT CONTENT */}
+
+                                  <div>
+
+                                    <div
+                                      style={{
+                                        display:
+                                          "flex",
+
+                                        alignItems:
+                                          "center",
+
+                                        justifyContent:
+                                          "space-between",
+
+                                        gap:
+                                          "12px",
+
+                                        flexWrap:
+                                          "wrap",
+                                      }}
+                                    >
+
+                                      <strong
+                                        style={{
+                                          fontSize:
+                                            "16px",
+
+                                          color:
+                                            "#243633",
+                                        }}
+                                      >
+                                        {eventName}
+                                      </strong>
+
+
+                                      <span
+                                        style={{
+                                          padding:
+                                            "5px 9px",
+
+                                          borderRadius:
+                                            "999px",
+
+                                          background:
+                                            "#f0f7f5",
+
+                                          fontSize:
+                                            "12px",
+
+                                          fontWeight:
+                                            700,
+
+                                          color:
+                                            "#087f72",
+                                        }}
+                                      >
+                                        {
+                                          log.storageId ||
+                                          selectedFarmer.storageId
+                                        }
+                                      </span>
+
+                                    </div>
+
+
+                                    {/* EVENT TIME */}
+
+                                    <div
+                                      style={{
+                                        marginTop:
+                                          "12px",
+
+                                        display:
+                                          "grid",
+
+                                        gridTemplateColumns:
+                                          "repeat(auto-fit, minmax(180px, 1fr))",
+
+                                        gap:
+                                          "12px",
+                                      }}
+                                    >
+
+                                      <div>
+
+                                        <p
+                                          style={{
+                                            ...labelStyle,
+
+                                            marginBottom:
+                                              "4px",
+                                          }}
+                                        >
+                                          Event Time
+                                        </p>
+
+                                        <p
+                                          style={{
+                                            margin:
+                                              0,
+
+                                            fontSize:
+                                              "14px",
+
+                                            fontWeight:
+                                              600,
+                                          }}
+                                        >
+                                          {
+                                            eventTime
+                                              ? new Date(
+                                                  eventTime
+                                                ).toLocaleString()
+                                              : "Not available"
+                                          }
+                                        </p>
+
+                                      </div>
+
+
+                                      <div>
+
+                                        <p
+                                          style={{
+                                            ...labelStyle,
+
+                                            marginBottom:
+                                              "4px",
+                                          }}
+                                        >
+                                          Server Received
+                                        </p>
+
+                                        <p
+                                          style={{
+                                            margin:
+                                              0,
+
+                                            fontSize:
+                                              "14px",
+
+                                            fontWeight:
+                                              600,
+                                          }}
+                                        >
+                                          {
+                                            serverTime
+                                              ? new Date(
+                                                  serverTime
+                                                ).toLocaleString()
+                                              : "Not available"
+                                          }
+                                        </p>
+
+                                      </div>
+
+                                    </div>
+
+                                  </div>
+
+                                </div>
+
+                              );
+
+                            }
+                          )
+                        }
+
+                      </div>
+
+                    )
+                  }
+
+
+                  {/* NO RECORDS */}
+
+                  {
+                    !entryLogsLoading &&
+                    !entryLogsError &&
+                    entryLogs.length === 0 && (
+
+                      <div
+                        style={{
+                          marginTop:
+                            "20px",
+
+                          padding:
+                            "40px 20px",
+
+                          textAlign:
+                            "center",
+
+                          border:
+                            "1px dashed #ccd8d5",
+
+                          borderRadius:
+                            "14px",
+                        }}
+                      >
+
+                        <div
+                          style={{
+                            fontSize:
+                              "34px",
+
+                            marginBottom:
+                              "10px",
+                          }}
+                        >
+                          🚪
+                        </div>
+
+                        <h3
+                          style={{
+                            margin:
+                              "0 0 8px",
+                          }}
+                        >
+                          No entry records available
+                        </h3>
+
+                        <p
+                          style={{
+                            opacity:
+                              0.65,
+
+                            maxWidth:
+                              "520px",
+
+                            margin:
+                              "8px auto 0",
+
+                            lineHeight:
+                              1.5,
+                          }}
+                        >
+                          Physical access events for this VOOLER
+                          storage will appear here when they are
+                          received by the backend.
+                        </p>
+
+                      </div>
+
+                    )
+                  }
 
                 </div>
 
@@ -2076,9 +2495,7 @@ function AdminDashboard({
         </main>
 
       </div>
-
     );
-
   }
 
 
@@ -2087,7 +2504,6 @@ function AdminDashboard({
   // =====================================================
 
   return (
-
     <div className="dashboard-page">
 
       <nav className="dashboard-navbar">
@@ -2095,7 +2511,6 @@ function AdminDashboard({
         <div className="dashboard-logo">
           ❄ VOOLER Admin
         </div>
-
 
         <div className="dashboard-nav-right">
 
@@ -2132,7 +2547,9 @@ function AdminDashboard({
         </section>
 
 
+        {/* ================================================= */}
         {/* SUMMARY */}
+        {/* ================================================= */}
 
         <div
           style={{
@@ -2192,22 +2609,24 @@ function AdminDashboard({
         </div>
 
 
+        {/* ================================================= */}
         {/* ERROR */}
+        {/* ================================================= */}
 
         {
           error && (
 
             <div className="alert-danger">
-
               ❌ {error}
-
             </div>
 
           )
         }
 
 
-        {/* FARMERS */}
+        {/* ================================================= */}
+        {/* REGISTERED FARMERS */}
+        {/* ================================================= */}
 
         <section className="history-section">
 
@@ -2256,7 +2675,6 @@ function AdminDashboard({
                 </div>
 
               )
-
               : (
 
                 <div
@@ -2374,7 +2792,9 @@ function AdminDashboard({
                   }
 
 
+                  {/* ================================================= */}
                   {/* REGISTER NEW FARMER */}
+                  {/* ================================================= */}
 
                   <button
                     type="button"
@@ -2437,9 +2857,7 @@ function AdminDashboard({
       </main>
 
     </div>
-
   );
-
 }
 
 
