@@ -36,6 +36,10 @@ const smsRoutes =
 const weatherRoutes =
   require("./routes/weather");
 
+// NEW: Door entry route
+const doorEntryRoutes =
+  require("./routes/doorEntry");
+
 
 // =====================================================
 // APP
@@ -90,6 +94,19 @@ app.use(
 app.use(
   "/api/weather",
   weatherRoutes
+);
+
+
+// =====================================================
+// DOOR ENTRY ROUTE
+// =====================================================
+//
+// POST /api/device/door-entry
+//
+
+app.use(
+  "/api/device/door-entry",
+  doorEntryRoutes
 );
 
 
@@ -150,6 +167,7 @@ const startServer = async () => {
       }
     );
   }
+
   catch (error) {
     console.error(
       "MongoDB connection failed:"
