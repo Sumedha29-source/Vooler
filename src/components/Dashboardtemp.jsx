@@ -893,25 +893,15 @@ function Dashboard({
     (hum) => {
 
       if (
-        hum < 45
+        hum >= 85
       ) {
 
-        return "UNSAFE";
+        return "EXCELLENT";
 
       }
 
 
-      if (
-        hum >= 50 &&
-        hum <= 65
-      ) {
-
-        return "SAFE";
-
-      }
-
-
-      return "WARNING";
+      return "ATTENTION";
 
     };
 
@@ -1010,9 +1000,6 @@ function Dashboard({
     chamber2Status ===
       "UNSAFE" ||
 
-    humidityStatus ===
-      "UNSAFE" ||
-
     power === false ||
 
     online === false
@@ -1038,7 +1025,7 @@ function Dashboard({
       "NO_DATA" ||
 
     humidityStatus ===
-      "WARNING"
+      "ATTENTION"
 
   ) {
 
@@ -1685,13 +1672,17 @@ function Dashboard({
 
             <div
               className={
-                `status-badge ${humidityStatus.toLowerCase()}`
+                `status-badge ${
+                  humidityStatus === "EXCELLENT"
+                    ? "safe"
+                    : "warning"
+                }`
               }
             >
 
-              {translateStatus(
-                humidityStatus
-              )}
+              {humidityStatus === "EXCELLENT"
+                ? "EXCELLENT"
+                : "ATTENTION"}
 
             </div>
 
@@ -2612,23 +2603,11 @@ function Dashboard({
 
 
           {humidityStatus ===
-            "WARNING" && (
+            "ATTENTION" && (
 
               <div className="alert-warning">
 
-                ⚠️ {t.humidityWarning}
-
-              </div>
-
-            )}
-
-
-          {humidityStatus ===
-            "UNSAFE" && (
-
-              <div className="alert-danger">
-
-                🚨 {t.unsafeHumidity}:{" "}
+                ⚠️ Humidity needs attention:{" "}
                 {humidity}%
 
               </div>
