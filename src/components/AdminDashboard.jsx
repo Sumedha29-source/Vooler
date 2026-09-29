@@ -2172,13 +2172,13 @@ function AdminDashboard({
                               const eventName =
                                 log.eventType ===
                                 "DOOR_CLOSED"
-                                  ? "Door Closed"
-                                  : "Door Entry";
+                                  ? "Exit"
+                                  : "Entry";
 
                               const eventIcon =
                                 log.eventType ===
                                 "DOOR_CLOSED"
-                                  ? "🔒"
+                                  ? "↪️"
                                   : "🚪";
 
                               return (
