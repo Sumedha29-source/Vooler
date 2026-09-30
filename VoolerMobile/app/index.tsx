@@ -3,6 +3,7 @@ import {
 } from "react";
 
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -255,7 +256,7 @@ export default function LoginScreen() {
 
 
           {/* =================================================
-              COLORFUL BRAND HEADER
+              VOOLER BRAND HEADER
           ================================================= */}
 
           <View
@@ -269,30 +270,34 @@ export default function LoginScreen() {
             "
           >
 
-            <View
-              className="
-                w-24
-                h-24
-                rounded-full
-                bg-white/15
-                items-center
-                justify-center
-                mb-4
-              "
-            >
 
-              <Text
-                className="
-                  text-6xl
-                "
-              >
+            {/* VOOLER LOGO IMAGE */}
 
-                ❄
+            <Image
 
-              </Text>
+              source={
+                require(
+                  "../assets/images/vooler-icon.png"
+                )
+              }
 
-            </View>
+              style={{
+                width:
+                  110,
 
+                height:
+                  110,
+
+                marginBottom:
+                  16,
+              }}
+
+              resizeMode="contain"
+
+            />
+
+
+            {/* VOOLER NAME */}
 
             <Text
               className="
@@ -308,6 +313,8 @@ export default function LoginScreen() {
             </Text>
 
 
+            {/* SUBTITLE */}
+
             <Text
               className="
                 text-teal-100
@@ -320,61 +327,6 @@ export default function LoginScreen() {
 
             </Text>
 
-
-            <View
-              className="
-                flex-row
-                gap-2
-                mt-5
-              "
-            >
-
-              <View
-                className="
-                  rounded-full
-                  bg-white/15
-                  px-3
-                  py-2
-                "
-              >
-
-                <Text
-                  className="
-                    text-white
-                    text-xs
-                  "
-                >
-
-                  🌡 Temperature
-
-                </Text>
-
-              </View>
-
-
-              <View
-                className="
-                  rounded-full
-                  bg-white/15
-                  px-3
-                  py-2
-                "
-              >
-
-                <Text
-                  className="
-                    text-white
-                    text-xs
-                  "
-                >
-
-                  💧 Humidity
-
-                </Text>
-
-              </View>
-
-            </View>
 
           </View>
 
@@ -392,8 +344,11 @@ export default function LoginScreen() {
 
             <CardHeader>
 
+
               <CardDescription>
+
                 FARMER ACCESS
+
               </CardDescription>
 
 
@@ -420,13 +375,16 @@ export default function LoginScreen() {
 
               </Text>
 
+
             </CardHeader>
 
 
             <CardContent>
 
 
-              {/* ERROR */}
+              {/* =================================================
+                  ERROR MESSAGE
+              ================================================= */}
 
               {error ? (
 
@@ -458,7 +416,9 @@ export default function LoginScreen() {
               ) : null}
 
 
-              {/* NAME */}
+              {/* =================================================
+                  FARMER NAME
+              ================================================= */}
 
               <Text
                 className="
@@ -484,9 +444,11 @@ export default function LoginScreen() {
                   setName
                 }
 
-                placeholder="Enter your registered name"
+                placeholder=
+                  "Enter your registered name"
 
-                autoCapitalize="words"
+                autoCapitalize=
+                  "words"
 
                 editable={
                   !loading
@@ -500,7 +462,9 @@ export default function LoginScreen() {
               />
 
 
-              {/* PHONE */}
+              {/* =================================================
+                  MOBILE NUMBER
+              ================================================= */}
 
               <Text
                 className="
@@ -546,9 +510,11 @@ export default function LoginScreen() {
                   }
                 }
 
-                placeholder="Enter 10-digit mobile number"
+                placeholder=
+                  "Enter 10-digit mobile number"
 
-                keyboardType="phone-pad"
+                keyboardType=
+                  "phone-pad"
 
                 maxLength={
                   10
@@ -566,7 +532,9 @@ export default function LoginScreen() {
               />
 
 
-              {/* LOGIN BUTTON */}
+              {/* =================================================
+                  LOGIN BUTTON
+              ================================================= */}
 
               <Pressable
 
@@ -588,7 +556,9 @@ export default function LoginScreen() {
                 style={{
                   opacity:
                     loading
+
                       ? 0.6
+
                       : 1,
                 }}
 
@@ -603,16 +573,22 @@ export default function LoginScreen() {
                   "
                 >
 
-                  {loading
-                    ? "LOGGING IN..."
-                    : "LOGIN TO VOOLER"}
+                  {
+                    loading
+
+                      ? "LOGGING IN..."
+
+                      : "LOGIN TO VOOLER"
+                  }
 
                 </Text>
 
               </Pressable>
 
 
-              {/* DIVIDER */}
+              {/* =================================================
+                  DIVIDER
+              ================================================= */}
 
               <View
                 className="
@@ -656,7 +632,9 @@ export default function LoginScreen() {
               </View>
 
 
-              {/* ADMIN */}
+              {/* =================================================
+                  ADMIN LOGIN
+              ================================================= */}
 
               <Pressable
 
@@ -697,6 +675,8 @@ export default function LoginScreen() {
               </Pressable>
 
 
+              {/* ADMIN INFORMATION */}
+
               <Text
                 className="
                   text-xs
@@ -717,136 +697,9 @@ export default function LoginScreen() {
           </Card>
 
 
-          {/* FEATURE CARDS */}
-
-          <View
-            className="
-              flex-row
-              gap-3
-              mt-5
-            "
-          >
-
-            <View
-              className="
-                flex-1
-                rounded-2xl
-                bg-sky-50
-                border
-                border-sky-200
-                px-3
-                py-4
-                items-center
-              "
-            >
-
-              <Text
-                className="
-                  text-2xl
-                  mb-2
-                "
-              >
-                📡
-              </Text>
-
-
-              <Text
-                className="
-                  text-sky-700
-                  font-bold
-                  text-center
-                  text-xs
-                "
-              >
-
-                Live Monitoring
-
-              </Text>
-
-            </View>
-
-
-            <View
-              className="
-                flex-1
-                rounded-2xl
-                bg-emerald-50
-                border
-                border-emerald-200
-                px-3
-                py-4
-                items-center
-              "
-            >
-
-              <Text
-                className="
-                  text-2xl
-                  mb-2
-                "
-              >
-                🔔
-              </Text>
-
-
-              <Text
-                className="
-                  text-emerald-700
-                  font-bold
-                  text-center
-                  text-xs
-                "
-              >
-
-                Smart Alerts
-
-              </Text>
-
-            </View>
-
-
-            <View
-              className="
-                flex-1
-                rounded-2xl
-                bg-amber-50
-                border
-                border-amber-200
-                px-3
-                py-4
-                items-center
-              "
-            >
-
-              <Text
-                className="
-                  text-2xl
-                  mb-2
-                "
-              >
-                ⚡
-              </Text>
-
-
-              <Text
-                className="
-                  text-amber-700
-                  font-bold
-                  text-center
-                  text-xs
-                "
-              >
-
-                Power Status
-
-              </Text>
-
-            </View>
-
-          </View>
-
-
-          {/* FOOTER */}
+          {/* =================================================
+              FOOTER
+          ================================================= */}
 
           <Text
             className="
