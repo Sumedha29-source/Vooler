@@ -78,6 +78,30 @@ function AdminDashboard({
 
 
   // =====================================================
+  // ADMIN DEVICE PIN VIEW
+  // =====================================================
+
+  const [adminDevicePin, setAdminDevicePin] = useState("");
+  const [showAdminDevicePin, setShowAdminDevicePin] = useState(false);
+  const [adminDevicePinLoading, setAdminDevicePinLoading] = useState(false);
+  const [adminDevicePinError, setAdminDevicePinError] = useState("");
+
+
+  // =====================================================
+  // EDIT FARMER DETAILS
+  // =====================================================
+
+  const [editingFarmer, setEditingFarmer] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editSimNumber, setEditSimNumber] = useState("");
+  const [editLanguage, setEditLanguage] = useState("en");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editMessage, setEditMessage] = useState("");
+
+
+  // =====================================================
   // REGISTRATION PAGE
   // =====================================================
 
@@ -284,6 +308,142 @@ function AdminDashboard({
 
 
   // =====================================================
+  // FETCH DEVICE PIN FOR ADMIN
+  // =====================================================
+
+  const fetchAdminDevicePin = async (farmerId) => {
+    try {
+      setAdminDevicePinLoading(true);
+      setAdminDevicePinError("");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/farmers/${farmerId}/device-pin`,
+        {
+          headers: {
+            "x-admin-key": adminKey,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to fetch device PIN"
+        );
+      }
+
+      setAdminDevicePin(data.devicePin || "");
+      setShowAdminDevicePin(true);
+    }
+    catch (err) {
+      console.error("Device PIN fetch error:", err);
+      setAdminDevicePinError(err.message);
+      setAdminDevicePin("");
+      setShowAdminDevicePin(false);
+    }
+    finally {
+      setAdminDevicePinLoading(false);
+    }
+  };
+
+
+  // =====================================================
+  // EDIT FARMER DETAILS
+  // =====================================================
+
+  const startEditingFarmer = () => {
+    setEditName(selectedFarmer.name || "");
+    setEditPhone(selectedFarmer.phone || "");
+    setEditSimNumber(selectedFarmer.simNumber || "");
+    setEditLanguage(selectedFarmer.language || "en");
+    setEditError("");
+    setEditMessage("");
+    setEditingFarmer(true);
+  };
+
+  const cancelEditingFarmer = () => {
+    setEditingFarmer(false);
+    setEditError("");
+    setEditMessage("");
+  };
+
+  const saveFarmerDetails = async (e) => {
+    e.preventDefault();
+    setEditError("");
+    setEditMessage("");
+
+    if (!editName.trim() || !editPhone.trim() || !editSimNumber.trim()) {
+      setEditError("Please fill in all required fields.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(editPhone.trim())) {
+      setEditError("Farmer mobile number must contain exactly 10 digits.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(editSimNumber.trim())) {
+      setEditError("SIM800L number must contain exactly 10 digits.");
+      return;
+    }
+
+    try {
+      setEditLoading(true);
+
+      const farmerId = selectedFarmer._id || selectedFarmer.id;
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/farmers/${farmerId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-key": adminKey,
+          },
+          body: JSON.stringify({
+            name: editName.trim(),
+            phone: editPhone.trim(),
+            simNumber: editSimNumber.trim(),
+            language: editLanguage,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to update farmer details");
+      }
+
+      const updatedFarmer = {
+        ...selectedFarmer,
+        ...data.farmer,
+      };
+
+      setSelectedFarmer(updatedFarmer);
+      setFarmers((currentFarmers) =>
+        currentFarmers.map((farmer) =>
+          (farmer._id || farmer.id) === farmerId
+            ? { ...farmer, ...data.farmer }
+            : farmer
+        )
+      );
+
+      setEditMessage("Farmer details updated successfully.");
+      setEditingFarmer(false);
+      await fetchFarmers();
+    }
+    catch (err) {
+      console.error("Edit farmer error:", err);
+      setEditError(err.message);
+    }
+    finally {
+      setEditLoading(false);
+    }
+  };
+
+
+  // =====================================================
   // FARMER CLICK
   // =====================================================
 
@@ -302,6 +462,14 @@ function AdminDashboard({
 
       setEntryLogs([]);
       setEntryLogsError("");
+
+      setAdminDevicePin("");
+      setShowAdminDevicePin(false);
+      setAdminDevicePinError("");
+
+      setEditingFarmer(false);
+      setEditError("");
+      setEditMessage("");
 
       fetchDeviceCondition(
         farmer.storageId
@@ -331,6 +499,10 @@ function AdminDashboard({
 
       setEntryLogs([]);
       setEntryLogsError("");
+
+      setAdminDevicePin("");
+      setShowAdminDevicePin(false);
+      setAdminDevicePinError("");
 
       window.scrollTo({
         top: 0,
@@ -1259,20 +1431,173 @@ function AdminDashboard({
 
                       <p
                         style={{
-                          margin:
-                            "5px 0 0",
-
-                          opacity:
-                            0.65,
-
-                          fontSize:
-                            "14px",
+                          margin: "5px 0 0",
+                          opacity: 0.65,
+                          fontSize: "14px",
                         }}
                       >
                         Registration and assigned VOOLER information.
                       </p>
                     </div>
+
+                    {!editingFarmer && (
+                      <button
+                        type="button"
+                        onClick={startEditingFarmer}
+                        style={{
+                          border: "1px solid #87bdb5",
+                          background: "#f8fffd",
+                          color: "#087f72",
+                          borderRadius: "9px",
+                          padding: "9px 14px",
+                          cursor: "pointer",
+                          fontWeight: 700,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        ✏️ Edit Farmer Details
+                      </button>
+                    )}
                   </div>
+
+
+                  {editMessage && (
+                    <div className="alert-safe" style={{ marginTop: "16px" }}>
+                      ✅ {editMessage}
+                    </div>
+                  )}
+
+                  {editingFarmer && (
+                    <form
+                      onSubmit={saveFarmerDetails}
+                      style={{
+                        ...detailCardStyle,
+                        marginTop: "20px",
+                      }}
+                    >
+                      <h3 style={{ margin: "0 0 18px" }}>
+                        ✏️ Edit Farmer Details
+                      </h3>
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                          gap: "14px",
+                        }}
+                      >
+                        <div className="form-group">
+                          <label>Farmer Name</label>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Farmer name"
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Mobile Number</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editPhone}
+                            onChange={(e) =>
+                              setEditPhone(
+                                e.target.value.replace(/\D/g, "").slice(0, 10)
+                              )
+                            }
+                            maxLength={10}
+                            placeholder="10-digit mobile number"
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>SIM800L Number</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editSimNumber}
+                            onChange={(e) =>
+                              setEditSimNumber(
+                                e.target.value.replace(/\D/g, "").slice(0, 10)
+                              )
+                            }
+                            maxLength={10}
+                            placeholder="10-digit SIM number"
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Preferred Language</label>
+                          <select
+                            value={editLanguage}
+                            onChange={(e) => setEditLanguage(e.target.value)}
+                          >
+                            <option value="en">English</option>
+                            <option value="bn">বাংলা</option>
+                            <option value="hi">हिन्दी</option>
+                            <option value="as">অসমীয়া</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "14px",
+                          padding: "12px 14px",
+                          background: "#f8fffd",
+                          border: "1px solid #dcebe7",
+                          borderRadius: "10px",
+                          fontSize: "13px",
+                          opacity: 0.78,
+                        }}
+                      >
+                        Storage ID and Physical Access PIN are managed separately and are not changed here.
+                      </div>
+
+                      {editError && (
+                        <div className="alert-danger" style={{ marginTop: "14px" }}>
+                          ❌ {editError}
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                          marginTop: "18px",
+                        }}
+                      >
+                        <button
+                          type="submit"
+                          className="login-button"
+                          disabled={editLoading}
+                          style={{ width: "auto", marginTop: 0 }}
+                        >
+                          {editLoading ? "Saving..." : "Save Changes"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={cancelEditingFarmer}
+                          disabled={editLoading}
+                          style={{
+                            border: "1px solid #ccd8d5",
+                            background: "#ffffff",
+                            borderRadius: "9px",
+                            padding: "10px 16px",
+                            cursor: editLoading ? "default" : "pointer",
+                            fontWeight: 700,
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
 
 
                   <div
@@ -1384,40 +1709,97 @@ function AdminDashboard({
                   </div>
 
 
-                  {/* DEVICE PIN SECURITY INFORMATION */}
+                  {/* DEVICE PIN ADMIN VIEW */}
 
                   <div
                     style={{
                       ...detailCardStyle,
-
-                      marginTop:
-                        "14px",
+                      marginTop: "14px",
                     }}
                   >
                     <p style={labelStyle}>
                       Physical Access PIN
                     </p>
 
-                    <p style={valueStyle}>
-                      🔒 Configured securely
-                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <p
+                        style={{
+                          ...valueStyle,
+                          letterSpacing: "4px",
+                        }}
+                      >
+                        {showAdminDevicePin
+                          ? (adminDevicePin || "Not configured")
+                          : "••••"}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (showAdminDevicePin) {
+                            setShowAdminDevicePin(false);
+                            return;
+                          }
+
+                          if (adminDevicePin) {
+                            setShowAdminDevicePin(true);
+                            return;
+                          }
+
+                          fetchAdminDevicePin(
+                            selectedFarmer._id || selectedFarmer.id
+                          );
+                        }}
+                        disabled={adminDevicePinLoading}
+                        style={{
+                          border: "1px solid #87bdb5",
+                          background: "#f8fffd",
+                          color: "#087f72",
+                          borderRadius: "9px",
+                          padding: "8px 12px",
+                          cursor: adminDevicePinLoading
+                            ? "default"
+                            : "pointer",
+                          fontWeight: 700,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {adminDevicePinLoading
+                          ? "Loading..."
+                          : showAdminDevicePin
+                            ? "🙈 Hide PIN"
+                            : "👁 Show PIN"}
+                      </button>
+                    </div>
+
+                    {adminDevicePinError && (
+                      <p
+                        style={{
+                          margin: "8px 0 0",
+                          color: "#c0392b",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {adminDevicePinError}
+                      </p>
+                    )}
 
                     <p
                       style={{
-                        margin:
-                          "8px 0 0",
-
-                        opacity:
-                          0.62,
-
-                        fontSize:
-                          "13px",
-
-                        lineHeight:
-                          1.5,
+                        margin: "8px 0 0",
+                        opacity: 0.62,
+                        fontSize: "13px",
+                        lineHeight: 1.5,
                       }}
                     >
-                      The farmer's 4-digit keypad PIN is not displayed on the dashboard for security.
+                      Admin-only view of the farmer's 4-digit physical keypad PIN.
                     </p>
                   </div>
 
